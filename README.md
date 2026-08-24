@@ -1,10 +1,126 @@
 # ModbusRTUMaster
 
 > [!IMPORTANT]
-> The `ogm/compat` line is an OpenGameMaster compatibility seed rooted at the
-> exact CMB27 revision originally imported by OGM. It intentionally contains no
-> replayed OGM master changes yet. See [OGM_FORK_PROVENANCE.md](OGM_FORK_PROVENANCE.md)
-> before rebasing, merging upstream, or publishing a package.
+> This branch is the OpenGameMaster compatibility seed, not the current CMB27
+> development line. It is rooted at the exact CMB27 revision originally
+> imported by OGM and intentionally contains no replayed OGM master changes
+> yet. Do not use it as an OGM replacement until a validated compatibility
+> release is tagged.
+
+This repository preserves two intentionally different histories:
+
+| Ref | Purpose | Consumer guidance |
+| --- | --- | --- |
+| `main` | Mirrors the current `CMB27/ModbusRTUMaster` line without OGM changes. | Use to review or incorporate upstream work, not as an automatic OGM upgrade. |
+| `ogm/compat` | Starts at CMB27 `59fe589d2cf389b17b7eeb127254a28de144d6e3`, the source imported by OGM. | OGM changes are replayed here in small, test-gated commits. Consume only an immutable validated tag or commit. |
+
+The exact anchors, matching source hashes and replay rules are recorded in
+[OGM_FORK_PROVENANCE.md](OGM_FORK_PROVENANCE.md) and
+[`ogm-fork-lock.json`](ogm-fork-lock.json). Do not merge or rebase `main` into
+`ogm/compat`: a newer-upstream reconciliation is a separate behavior change.
+
+## Compatibility-line status
+
+The seed keeps `src/ModbusRTUMaster.h` and `src/ModbusRTUMaster.cpp` unchanged
+from the historical branch point. Package/provenance files have been added, but
+the functional OGM replay has not begun. In particular, this branch does not
+yet include OGM's platform seam, diagnostics, synchronization, FC 0x45
+no-response path or other later transport behavior.
+
+Check `ogm_functional_replay` in `ogm-fork-lock.json` before treating a commit
+as a migration candidate. A tag is not considered a compatibility release
+until the validation gates in the provenance document are satisfied.
+
+## Installing a validated compatibility release
+
+PlatformIO consumers should pin an immutable compatibility tag or full commit,
+never a moving branch:
+
+```ini
+lib_deps =
+  https://github.com/Cybergrany/ModbusRTUMaster.git#<validated-tag-or-40-char-commit>
+```
+
+The `library.json` at that pinned revision also pins the corresponding
+`Cybergrany/ModbusRTUComm` commit and the reviewed CMB27 `ModbusADU` commit.
+Do not override those dependencies independently unless the complete tuple has
+been revalidated. The seed commit is suitable for provenance inspection and
+compile experiments only; it is not the eventual OGM dependency pin.
+
+For local extraction work, use a path dependency so the consumer and library
+changes are tested together:
+
+```ini
+lib_deps =
+  symlink:///absolute/path/to/ModbusRTUMaster
+```
+
+Before publishing a release, replace the local path with the immutable remote
+revision and rebuild the exact OGM dependency tree from a clean dependency
+cache.
+
+## Compatibility-seed usage example
+
+The historical compatibility API returns `ModbusRTUMasterError`, rather than a
+`bool`. It also expects the application to configure the serial port; the
+library's `begin()` computes RTU timing and initializes direction pins but does
+not call `HardwareSerial::begin()` on this seed.
+
+```cpp
+#include <Arduino.h>
+#include <ModbusRTUMaster.h>
+
+namespace {
+constexpr unsigned long kBaud = 115200UL;
+constexpr int8_t kDriverEnablePin = 2;
+ModbusRTUMaster modbus(Serial1, kDriverEnablePin);
+}
+
+void setup() {
+  Serial1.begin(kBaud, SERIAL_8N1); // configure the UART first
+  modbus.begin(kBaud, SERIAL_8N1);  // derive RTU gaps and initialize DE/RE
+  modbus.setTimeout(500UL);
+}
+
+void loop() {
+  uint16_t holding[4] = {};
+  const ModbusRTUMasterError result =
+      modbus.readHoldingRegisters(7, 0, holding, 4);
+
+  if (result == MODBUS_RTU_MASTER_EXCEPTION_RESPONSE) {
+    const uint8_t exceptionCode = modbus.getExceptionResponse();
+    (void)exceptionCode;
+  }
+}
+```
+
+This example documents the seed API only. The functional replay may add
+neutral extension points while preserving existing OGM call sites; consult the
+header at the pinned release for its exact API.
+
+## OGM compatibility contract
+
+Moving source ownership into this repository must not change:
+
+- serialized request bytes, CRCs, response parsing or exception values;
+- request order, including FC 0x45 fire-and-forget/no-response ordering;
+- UART drain, driver-enable and receive-enable transitions or settling delays;
+- timeout boundaries, retry behavior, lock spans or caller-visible errors;
+- stack/RAM/flash footprint and hot-path performance beyond the accepted gates;
+- compatibility with the deployed original OGM slave firmware.
+
+Native fixtures and byte comparisons can strongly constrain those properties,
+but they cannot prove UART interrupt latency, RS485 electrical timing, scheduler
+behavior or bus contention. No Stage C bridge or hardware-validation claim is
+made by this seed documentation.
+
+## Historical upstream documentation
+
+The reference below is retained from the CMB27 branch point. It contains known
+documentation drift from the compatibility header (for example, some methods
+are described as returning `bool`). For compatibility work, the pinned source
+and the example above are authoritative until the replayed API is documented
+and tagged.
 
 > [!WARNING]  
 > ModbusRTUMaster is currently undergoing a redesign.
