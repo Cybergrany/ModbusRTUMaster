@@ -1,5 +1,11 @@
 # ModbusRTUMaster
 
+> [!IMPORTANT]
+> The `ogm/compat` line is an OpenGameMaster compatibility seed rooted at the
+> exact CMB27 revision originally imported by OGM. It intentionally contains no
+> replayed OGM master changes yet. See [OGM_FORK_PROVENANCE.md](OGM_FORK_PROVENANCE.md)
+> before rebasing, merging upstream, or publishing a package.
+
 > [!WARNING]  
 > ModbusRTUMaster is currently undergoing a redesign.
 > Things may not work, or may not be corretly documented.

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
+  "name": "ModbusRTUMaster",
+  "version": "2.0.0",
+  "description": "Arduino Modbus RTU master/client implementation.",
+  "keywords": [
+    "arduino",
+    "modbus",
+    "modbus-master",
+    "modbus-rtu",
+    "serial"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cybergrany/ModbusRTUMaster.git"
+  },
+  "authors": [
+    {
+      "name": "C. M. Bulliner"
+    },
+    {
+      "name": "OpenGameMaster contributors",
+      "maintainer": true
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "*",
+  "headers": [
+    "ModbusRTUMaster.h"
+  ],
+  "dependencies": {
+    "ModbusADU": "https://github.com/CMB27/ModbusADU.git#7cb0e24f0abe86bc83e114325d75fe7a7d878562",
+    "ModbusRTUComm": "https://github.com/Cybergrany/ModbusRTUComm.git#d6eca90923aea0a8c0d10716e190f462886205b2"
+  },
+  "export": {
+    "exclude": [
+      ".git",
+      ".github",
+      ".pio"
+    ]
+  },
+  "build": {
+    "includeDir": "src",
+    "srcDir": "src"
+  }
+}
