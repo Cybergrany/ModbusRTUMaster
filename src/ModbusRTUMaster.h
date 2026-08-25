@@ -4,6 +4,18 @@
 #include "Arduino.h"
 #include "ModbusADU.h"
 #include "ModbusRTUComm.h"
+#include "ModbusRTUMasterLock.h"
+
+// Targeted broadcast (FC 0x45)
+// ----------------------------
+// The master can address a specific slave using Modbus function 0x45 while
+// keeping unitId at 0. Data[0] contains the target slave id and data[1]
+// carries the inner function code (0x05, 0x06, 0x0F or 0x10). The remaining
+// bytes hold the inner PDU exactly as a normal unicast write. No response is
+// expected; ModbusRTUComm owns the post-transmit silence and next-message gate.
+static const uint8_t FC_TARGETED_BROADCAST = 0x45;
+static const uint16_t FC69_MAX_REGS = 122;
+static const uint16_t FC69_MAX_COILS = 1952;
 
 enum ModbusRTUMasterError : uint8_t {
   MODBUS_RTU_MASTER_SUCCESS = 0,
@@ -21,8 +33,15 @@ enum ModbusRTUMasterError : uint8_t {
   MODBUS_RTU_MASTER_UNEXPECTED_BYTE_COUNT = 12,
   MODBUS_RTU_MASTER_UNEXPECTED_ADDRESS = 13,
   MODBUS_RTU_MASTER_UNEXPECTED_VALUE = 14,
-  MODBUS_RTU_MASTER_UNEXPECTED_QUANTITY = 15
+  MODBUS_RTU_MASTER_UNEXPECTED_QUANTITY = 15,
+  MODBUS_RTU_MASTER_INVALID_TARGET_ID = 16,
+  MODBUS_RTU_MASTER_FC69_INVALID_INNER_FC = 17,
+  MODBUS_RTU_MASTER_FC69_INVALID_QUANTITY = 18,
+  MODBUS_RTU_MASTER_FC69_LENGTH_OVERFLOW = 19
 };
+
+// Lightweight error string helper for logs (const data only).
+const char* modbusRtuMasterErrorToString(ModbusRTUMasterError err);
 
 class ModbusRTUMaster {
   public:
@@ -30,15 +49,68 @@ class ModbusRTUMaster {
     void setTimeout(unsigned long timeout);
     void begin(unsigned long baud, uint32_t config = SERIAL_8N1);
 
-    ModbusRTUMasterError readCoils(uint8_t id, uint16_t startAddress, bool buf[], uint16_t quantity);
-    ModbusRTUMasterError readDiscreteInputs(uint8_t id, uint16_t startAddress, bool buf[], uint16_t quantity);
-    ModbusRTUMasterError readHoldingRegisters(uint8_t id, uint16_t startAddress, uint16_t buf[], uint16_t quantity);
-    ModbusRTUMasterError readInputRegisters(uint8_t id, uint16_t startAddress, uint16_t buf[], uint16_t quantity);
+// These methods are exposed only when the pinned Comm dependency advertises
+// the capability. This keeps intermediate replay commits buildable against the
+// immutable provenance seed; the final compatibility tuple enables them.
+#if defined(MBUS_RTU_COMM_HAS_ONE_SHOT_GAPS) && MBUS_RTU_COMM_HAS_ONE_SHOT_GAPS
+    void setPreTxGapUsOnce(uint32_t extraGapUs);
+    void setPostTxGapUsOnce(uint32_t extraGapUs);
+#endif
+#if defined(MBUS_DETAILED_METRICS) && MBUS_DETAILED_METRICS && \
+    defined(MBUS_RTU_COMM_HAS_DEBUG_INFO) && MBUS_RTU_COMM_HAS_DEBUG_INFO
+    const ModbusRTUComm::DebugInfo& debugInfo() const {
+      return _rtuComm.debugInfo();
+    }
+#endif
+#if defined(MBUS_RTU_COMM_HAS_RX_STACK_SNAPSHOT) && \
+    MBUS_RTU_COMM_HAS_RX_STACK_SNAPSHOT
+    ModbusRTUComm::RxThreadStackSnapshot rxThreadStackSnapshot() const {
+      return _rtuComm.rxThreadStackSnapshot();
+    }
+#endif
 
-    ModbusRTUMasterError writeSingleCoil(uint8_t id, uint16_t address, bool value);
-    ModbusRTUMasterError writeSingleHoldingRegister(uint8_t id, uint16_t address, uint16_t value);
-    ModbusRTUMasterError writeMultipleCoils(uint8_t id, uint16_t startAddress, bool buf[], uint16_t quantity);
-    ModbusRTUMasterError writeMultipleHoldingRegisters(uint8_t id, uint16_t startAddress, uint16_t buf[], uint16_t quantity);
+    ModbusRTUMasterError readCoils(uint8_t id, uint16_t startAddress,
+                                  bool buf[], uint16_t quantity,
+                                  MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+    ModbusRTUMasterError readDiscreteInputs(
+        uint8_t id, uint16_t startAddress, bool buf[], uint16_t quantity,
+        MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+    ModbusRTUMasterError readHoldingRegisters(
+        uint8_t id, uint16_t startAddress, uint16_t buf[], uint16_t quantity,
+        MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+    ModbusRTUMasterError readInputRegisters(
+        uint8_t id, uint16_t startAddress, uint16_t buf[], uint16_t quantity,
+        MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+
+    ModbusRTUMasterError writeSingleCoil(uint8_t id, uint16_t address,
+                                         bool value);
+    ModbusRTUMasterError writeSingleHoldingRegister(uint8_t id,
+                                                    uint16_t address,
+                                                    uint16_t value);
+    ModbusRTUMasterError writeMultipleCoils(
+        uint8_t id, uint16_t startAddress, bool buf[], uint16_t quantity,
+        MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+    ModbusRTUMasterError writeMultipleHoldingRegisters(
+        uint8_t id, uint16_t startAddress, uint16_t buf[], uint16_t quantity,
+        MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+
+    // FC69 targeted broadcast helpers. They are fire-and-forget: a successful
+    // call means the frame was admitted to the Comm transmit path, not that a
+    // slave acknowledged or applied the write.
+    ModbusRTUMasterError fc69WriteSingleCoil(uint8_t targetId,
+                                             uint16_t address, bool value);
+    ModbusRTUMasterError fc69WriteSingleHoldingRegister(uint8_t targetId,
+                                                        uint16_t address,
+                                                        uint16_t value);
+    ModbusRTUMasterError fc69WriteMultipleCoils(
+        uint8_t targetId, uint16_t startAddress, const bool buf[],
+        uint16_t quantity, MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+    ModbusRTUMasterError fc69WriteMultipleHoldingRegisters(
+        uint8_t targetId, uint16_t startAddress, const uint16_t buf[],
+        uint16_t quantity, MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+    ModbusRTUMasterError fc69WriteRaw(
+        uint8_t targetId, uint8_t innerFc, const uint8_t* innerPdu,
+        uint8_t innerLen, MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
 
     uint8_t getExceptionResponse();
 
@@ -46,12 +118,16 @@ class ModbusRTUMaster {
     ModbusRTUComm _rtuComm;
     uint8_t _exceptionResponse = 0;
 
-    ModbusRTUMasterError _readValues(uint8_t id, uint8_t functionCode, uint16_t startAddress, bool buf[], uint16_t quantity);
-    ModbusRTUMasterError _readValues(uint8_t id, uint8_t functionCode, uint16_t startAddress, uint16_t buf[], uint16_t quantity);
-    ModbusRTUMasterError _writeSingleValue(uint8_t id, uint8_t functionCode, uint16_t address, uint16_t value);
-
+    ModbusRTUMasterError _readValues(
+        uint8_t id, uint8_t functionCode, uint16_t startAddress, bool buf[],
+        uint16_t quantity, MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+    ModbusRTUMasterError _readValues(
+        uint8_t id, uint8_t functionCode, uint16_t startAddress,
+        uint16_t buf[], uint16_t quantity,
+        MBUS_RTU_MASTER_LOCK_TYPE* mut = nullptr);
+    ModbusRTUMasterError _writeSingleValue(uint8_t id, uint8_t functionCode,
+                                          uint16_t address, uint16_t value);
     ModbusRTUMasterError _translateCommError(ModbusRTUCommError commError);
-
 };
 
 #endif
