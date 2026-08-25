@@ -61,3 +61,14 @@ performance guard.
 The native suite cannot prove UART interrupt latency, RS485 bus idle, physical
 driver-enable timing or deployed-slave compatibility. Those remain consumer
 build and hardware gates after the exact Master/Comm dependency tuple is pinned.
+
+`arduino_compile_gate/arduino_compile_gate.ino` is the embedded tuple fixture.
+Build it with the candidate Master, pinned Comm and ADU libraries for each
+supported Arduino architecture. It links every OGM Master extension but guards
+all transactions behind a false runtime flag, so accidental flashing does not
+put requests on the bus.
+
+The current pinned tuple passes GIGA/mbed at `102672` bytes flash and `51216`
+bytes RAM. It also compiles for Nano/AVR at `12360` bytes flash and `3205` bytes
+RAM; that deliberately complete fixture exceeds Nano SRAM and is a compile/API
+gate only, not a deployable Nano configuration.

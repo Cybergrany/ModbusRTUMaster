@@ -19,6 +19,7 @@ no-behaviour-change migration gate.
 | `ogm/compat` branch point | `59fe589d2cf389b17b7eeb127254a28de144d6e3` |
 | First OGM import in `OpenGameMaster_pio` | `ef4d0ccb1cccd60781f3605d444a16dc7900661c` |
 | Later transfer into `OGM_Portable` | `a3551eab76877052df39a5e3ac875f71ce4e1109` |
+| Validated functional replay source | `2055adb449c1e767217f09f99efda32e52a0306d` |
 
 The two files imported by `ef4d0ccb` were compared with CMB27 at the branch
 point. Their SHA-256 values match exactly:
@@ -33,12 +34,46 @@ is [`ogm-fork-lock.json`](ogm-fork-lock.json).
 
 ## Current compatibility status
 
-The initial `ogm/compat` seed adds provenance and package metadata only. Its
-master source files remain identical to the historical CMB27 branch point, and
-`ogm_functional_replay` in `ogm-fork-lock.json` remains `not_started` until the
-first reviewed source replay lands. A successful seed compile demonstrates
-that the historical package can still be resolved; it does not demonstrate
-that current OGM consumers can switch to it without a behavior delta.
+The master-layer replay is implemented and natively differential-tested. It is
+not yet a compatibility release. `library.json` and `ogm-fork-lock.json` pin
+the separately software-gated functional ModbusRTUComm candidate
+`d65041e35a1d0ed77200bb887fee2f9b89f0a682`. The exact Master/Comm tuple still
+requires consumer builds and a physical RS485 checkpoint before release.
+
+The replay source is the exact OGM Portable hardware-validated dependency
+anchor `2055adb449c1e767217f09f99efda32e52a0306d`. No board definitions, game
+state, generated register layout or bridge topology entered this repository.
+
+### Functional replay ledger
+
+| Theme | Source provenance |
+| --- | --- |
+| FC `0x45` targeted broadcast and Comm-owned no-response gate | `OpenGameMaster_pio` `406a884c`, `ae476e17` |
+| Caller-buffer lock spans | `OpenGameMaster_pio` `346f6995`, `e59b26f5`; neutral selector from `OGM_Portable` `8697ed3` |
+| Stable error strings | `OpenGameMaster_pio` `a537188b` |
+| Failed-transmit error propagation | `OGM_Portable` `41ebf9fb` |
+| One-shot pre/post-gap forwarding | `OpenGameMaster_pio` `5918b7e8`; `OGM_Portable` `ba02774a` |
+| Metrics and stack snapshot forwarding | `OpenGameMaster_pio` `96591365`; `OGM_Portable` `571f29b2`, `75846947` |
+
+Implementation commit `b6569fcfcaf7e2cb4badeff2d9a39969b750b45b`
+contains the neutral replay. Commit
+`92625a1de9faae6c7098714a16d13442e3b23370` freezes the exact source oracle,
+ADU snapshot and 45-scenario trace gate.
+
+Native validation currently establishes exact candidate/oracle traces for
+request bytes, CRCs, response/error mapping, FC `0x45`, standard broadcasts,
+locks and completion order. Optimized symbols and the 8435-byte host object
+footprint are identical; the opt-in paired hot-path benchmark also passes.
+This supports running the paired consumer builds against the pinned Comm
+candidate. It does not replace the master-only physical RS485 checkpoint.
+
+The pinned Master/Comm tuple also links as strict native C++11 and passes the
+standalone Arduino compile gate on GIGA/mbed (`102672` flash, `51216` RAM) and
+Nano/AVR (`12360` flash, `3205` RAM). The Nano result is compile-only because
+the complete compatibility transport intentionally exceeds its 2 KiB SRAM.
+Whole-firmware resource comparison remains a consumer gate; standalone numbers
+must not be compared with an OGM application image as if their link surfaces
+were equal.
 
 ## Remote layout
 
@@ -100,8 +135,7 @@ not alter on-wire behavior; it does not replace item 6. Conversely, hardware
 that merely appears playable does not replace the trace, ordering or
 performance gates.
 
-The seed package pins ModbusADU to
-`7cb0e24f0abe86bc83e114325d75fe7a7d878562` and the provenance-only
-ModbusRTUComm seed to `d6eca90923aea0a8c0d10716e190f462886205b2`.
-The Comm pin must be advanced in a reviewed commit when its functional OGM
-transport replay is ready.
+The candidate package pins ModbusADU to
+`7cb0e24f0abe86bc83e114325d75fe7a7d878562` and the functional ModbusRTUComm
+candidate to `d65041e35a1d0ed77200bb887fee2f9b89f0a682`. Neither dependency may be
+advanced independently without rerunning the complete tuple gates.

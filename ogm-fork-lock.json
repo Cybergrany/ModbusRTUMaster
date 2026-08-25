@@ -22,8 +22,50 @@
     },
     "ModbusRTUComm": {
       "url": "https://github.com/Cybergrany/ModbusRTUComm.git",
-      "commit": "d6eca90923aea0a8c0d10716e190f462886205b2"
+      "commit": "d65041e35a1d0ed77200bb887fee2f9b89f0a682"
     }
   },
-  "ogm_functional_replay": "not_started"
+  "ogm_functional_replay": {
+    "status": "software_candidate_consumer_gate_pending",
+    "source_anchor": {
+      "repository": "OGM_Portable",
+      "commit": "2055adb449c1e767217f09f99efda32e52a0306d",
+      "files": {
+        "ModbusRTUMaster.h": "868db60a38c8664fd2008d37de1af57f71883cdeff1ec8cb692b462cebc1bc0e",
+        "ModbusRTUMaster.cpp": "8e960e61c673f5e4d78928af06e2c07dd99e95761ecf05f3d55690477970c586",
+        "ModbusRTUMasterLock.h": "9c3769990013e639819d820a83ce902fbfe65605321d0a950a393ec45bf69d38"
+      }
+    },
+    "implementation_commits": [
+      "b6569fcfcaf7e2cb4badeff2d9a39969b750b45b",
+      "92625a1de9faae6c7098714a16d13442e3b23370"
+    ],
+    "candidate_files": {
+      "src/ModbusRTUMaster.h": "104ec4f3fea0dc1cbd4df4eacdd349e2cc1fa781be11ce33494c9faa9fb3315b",
+      "src/ModbusRTUMaster.cpp": "d601cf073463eeaff308737724acbe775d6c34aec1690d7076ea974b2715032b",
+      "src/ModbusRTUMasterLock.h": "bd1ba1ccc44db63ec79dc56a4684e05845cf98532abbb196cde9d43e06c4501d"
+    },
+    "native_validation": {
+      "frozen_trace_scenarios": 45,
+      "optimized_symbol_parity": "exact",
+      "optimized_object_footprint_bytes": 8435,
+      "strict_paired_hot_path": "passed",
+      "functional_comm_pin": "d65041e35a1d0ed77200bb887fee2f9b89f0a682",
+      "master_comm_native_link": "passed",
+      "arduino_giga_mbed_compile": {
+        "status": "passed",
+        "flash_bytes": 102672,
+        "ram_bytes": 51216
+      },
+      "arduino_nano_avr_compile": {
+        "status": "passed_compile_only_ram_exceeds_target",
+        "flash_bytes": 12360,
+        "ram_bytes": 3205
+      }
+    },
+    "remaining_gates": [
+      "build the exact OGM consumer dependency tree",
+      "perform the master-only physical RS485 checkpoint"
+    ]
+  }
 }

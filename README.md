@@ -1,11 +1,11 @@
 # ModbusRTUMaster
 
 > [!IMPORTANT]
-> This branch is the OpenGameMaster compatibility seed, not the current CMB27
-> development line. It is rooted at the exact CMB27 revision originally
-> imported by OGM and intentionally contains no replayed OGM master changes
-> yet. Do not use it as an OGM replacement until a validated compatibility
-> release is tagged.
+> This branch is the OpenGameMaster compatibility line, not the current CMB27
+> development line. The functional Master replay is implemented and natively
+> differential-tested and pins an immutable software-gated Comm candidate. Do
+> not use it as an OGM replacement until the exact consumer builds and hardware
+> checkpoint are recorded and an immutable compatibility release is tagged.
 
 This repository preserves two intentionally different histories:
 
@@ -21,15 +21,21 @@ The exact anchors, matching source hashes and replay rules are recorded in
 
 ## Compatibility-line status
 
-The seed keeps `src/ModbusRTUMaster.h` and `src/ModbusRTUMaster.cpp` unchanged
-from the historical branch point. Package/provenance files have been added, but
-the functional OGM replay has not begun. In particular, this branch does not
-yet include OGM's platform seam, diagnostics, synchronization, FC 0x45
-no-response path or other later transport behavior.
+The Master protocol replay now includes OGM's FC `0x45` targeted-broadcast
+helpers, transmit-admission errors, caller-buffer synchronization, error names
+and neutral Comm capability forwarding. It deliberately does not own UART
+timing, drain/DE/RE, receive recovery, tasks or diagnostics policy; those live
+in the separately reviewed ModbusRTUComm fork.
 
 Check `ogm_functional_replay` in `ogm-fork-lock.json` before treating a commit
 as a migration candidate. A tag is not considered a compatibility release
 until the validation gates in the provenance document are satisfied.
+
+The current native gate compares 45 deterministic scenarios against the exact
+`OGM_Portable` `2055adb` source oracle. Request bytes and CRCs, parsed values,
+all error paths and lock/Comm ordering match. Optimized symbol sizes and object
+footprint are also exact. See [test/README.md](test/README.md) for the commands
+and the remaining hardware boundary.
 
 ## Installing a validated compatibility release
 
@@ -59,7 +65,7 @@ Before publishing a release, replace the local path with the immutable remote
 revision and rebuild the exact OGM dependency tree from a clean dependency
 cache.
 
-## Compatibility-seed usage example
+## Compatibility usage example
 
 The historical compatibility API returns `ModbusRTUMasterError`, rather than a
 `bool`. It also expects the application to configure the serial port; the
@@ -94,9 +100,29 @@ void loop() {
 }
 ```
 
-This example documents the seed API only. The functional replay may add
-neutral extension points while preserving existing OGM call sites; consult the
-header at the pinned release for its exact API.
+Targeted broadcast is exposed as explicit FC `0x45` helpers. It is
+fire-and-forget: success means Comm transmitted/admitted the frame, not that a
+slave acknowledged it.
+
+```cpp
+const uint16_t page[] = {0x1122, 0x3344};
+const ModbusRTUMasterError sent =
+    modbus.fc69WriteMultipleHoldingRegisters(7, 0x1234, page, 2);
+```
+
+Applications that pass a caller-buffer lock select a platform type at compile
+time. This keeps platform and RTOS headers out of the library while retaining
+direct, allocation-free `lock()`/`unlock()` calls:
+
+```ini
+build_flags =
+  -DMBUS_RTU_MASTER_LOCK_HEADER=\"platform/PlatformMutex.h\"
+  -DMBUS_RTU_MASTER_LOCK_TYPE=PlatformMutex
+```
+
+The lock covers only the caller-buffer copy. It is released before serial I/O;
+it does not serialize complete Modbus transactions. See [src/README.md](src/README.md)
+for the complete public contract and usage examples.
 
 ## OGM compatibility contract
 
