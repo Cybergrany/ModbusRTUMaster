@@ -63,6 +63,12 @@ No response is read. The Comm layer must advertise and enforce the established
 post-transmit/next-message gate. Callers that need confirmation perform a later
 normal unicast read; the Master does not infer delivery from successful send.
 
+This ordering guarantee also applies to standard unit-zero writes. The Master
+therefore requires `MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE == 1` and deliberately
+fails compilation when a selected Comm does not advertise it. A compatible
+`writeAdu()` signature alone is insufficient: older Comm revisions would send
+the bytes but allow the next request too early.
+
 `fc69WriteRaw()` is intended for already encoded inner PDUs. It still validates
 the permitted inner function, exact single-write length, multiple-write
 quantity/byte-count agreement and maximum ADU length before transmitting.
@@ -106,11 +112,11 @@ The selection is compile-time and must be consistent in every translation unit
 that sees the public header. Changing it changes the C++ method signatures and
 therefore requires a clean rebuild of the consumer and library.
 
-## Optional Comm capabilities
+## Required and optional Comm capabilities
 
-Intermediate provenance commits still pin the historical Comm seed. New
-forwarding methods are therefore enabled only when the selected Comm header
-advertises the matching neutral capability macro:
+The no-response gate above is mandatory for this compatibility line. Other
+forwarding methods are enabled only when the selected Comm header advertises
+the matching neutral capability macro:
 
 | Comm macro | Master API |
 | --- | --- |
@@ -118,7 +124,7 @@ advertises the matching neutral capability macro:
 | `MBUS_RTU_COMM_HAS_DEBUG_INFO` plus enabled detailed metrics | `debugInfo()` |
 | `MBUS_RTU_COMM_HAS_RX_STACK_SNAPSHOT` | `rxThreadStackSnapshot()` |
 
-These guards are a migration aid, not runtime feature detection. The final OGM
+These guards are compile-time contracts, not runtime feature detection. The OGM
 compatibility release pins one immutable Comm revision that exposes the same
 capabilities as the validated OGM source anchor.
 

@@ -37,7 +37,7 @@ is [`ogm-fork-lock.json`](ogm-fork-lock.json).
 The master-layer replay is implemented and natively differential-tested. It is
 not yet a compatibility release. `library.json` and `ogm-fork-lock.json` pin
 the separately software-gated functional ModbusRTUComm candidate
-`d65041e35a1d0ed77200bb887fee2f9b89f0a682`. The exact Master/Comm tuple still
+`10477dd4af395331c86692f03f9d0c5c709fa684`. The exact Master/Comm tuple still
 requires consumer builds and a physical RS485 checkpoint before release.
 
 The replay source is the exact OGM Portable hardware-validated dependency
@@ -62,10 +62,12 @@ ADU snapshot and 45-scenario trace gate.
 
 Native validation currently establishes exact candidate/oracle traces for
 request bytes, CRCs, response/error mapping, FC `0x45`, standard broadcasts,
-locks and completion order. Optimized symbols and the 8435-byte host object
-footprint are identical; the opt-in paired hot-path benchmark also passes.
-This supports running the paired consumer builds against the pinned Comm
-candidate. It does not replace the master-only physical RS485 checkpoint.
+locks and completion order. It also rejects Comm revisions that lack the
+explicit no-response/next-TX gate. Normalized optimized disassembly,
+per-function stack usage, symbols and the 8435-byte host object footprint are
+identical; the opt-in paired hot-path benchmark also passes. This supports
+running the paired consumer builds against the pinned Comm candidate. It does
+not replace the master-only physical RS485 checkpoint.
 
 The pinned Master/Comm tuple also links as strict native C++11 and passes the
 standalone Arduino compile gate on GIGA/mbed (`102672` flash, `51216` RAM) and
@@ -74,6 +76,14 @@ the complete compatibility transport intentionally exceeds its 2 KiB SRAM.
 Whole-firmware resource comparison remains a consumer gate; standalone numbers
 must not be compared with an OGM application image as if their link surfaces
 were equal.
+
+Both maintained public sketches are included in the same exact-tuple gate. The
+general example passes GIGA/mbed (`118968` flash, `51728` RAM) and Nano/AVR
+(`15352` flash, `3781` RAM); the interactive Probe passes Nano/AVR (`17816`
+flash, `3735` RAM). The AVR example results have the same compile-only SRAM
+qualification. The pinned Comm candidate independently passes its 39-scenario
+native trace, trace-off/C++11 matrices, drain-failure and separate-production-TU
+tests, plus GIGA include-shadow and AVR compiles.
 
 ## Remote layout
 
@@ -108,6 +118,9 @@ line.
    consumers.
 4. Pin releases by an immutable tag or commit. Do not consume `main` or
    `ogm/compat` by a moving branch name.
+   `library.properties` intentionally omits named Arduino dependencies because
+   that format cannot express immutable Git SHAs; use the exact tuple in
+   `library.json`/`ogm-fork-lock.json`.
 5. Reconcile newer CMB27 changes only in a separate, explicitly test-gated
    change after the compatibility package is proven.
 
@@ -137,5 +150,5 @@ performance gates.
 
 The candidate package pins ModbusADU to
 `7cb0e24f0abe86bc83e114325d75fe7a7d878562` and the functional ModbusRTUComm
-candidate to `d65041e35a1d0ed77200bb887fee2f9b89f0a682`. Neither dependency may be
+candidate to `10477dd4af395331c86692f03f9d0c5c709fa684`. Neither dependency may be
 advanced independently without rerunning the complete tuple gates.

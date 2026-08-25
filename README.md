@@ -54,6 +54,12 @@ Do not override those dependencies independently unless the complete tuple has
 been revalidated. The seed commit is suitable for provenance inspection and
 compile experiments only; it is not the eventual OGM dependency pin.
 
+Arduino Library Manager metadata cannot pin dependencies to Git commits, so
+`library.properties` intentionally declares no mutable named dependencies.
+Arduino IDE/CLI users must install the exact ModbusADU and ModbusRTUComm
+revisions from `ogm-fork-lock.json` themselves. A mismatched Comm then fails at
+compile time unless it advertises the required no-response/next-TX gate.
+
 For local extraction work, use a path dependency so the consumer and library
 changes are tested together:
 
@@ -161,8 +167,12 @@ This is an Arduino library that implements the master/client logic of the Modbus
 This library will work with HardwareSerial, SoftwareSerial, or Serial_ (USB Serial on ATmega32u4 based boards). A driver enable pin can be set up, enabling an RS-485 transceiver to be used. Only `SERIAL_8N1`, `SERIAL_8E1`, `SERIAL_8O1`, `SERIAL_8N2`, `SERIAL_8E2`, and `SERIAL_8O2` are supported when using HardwareSerial; attempting to use any other configuration will cause the library to default to `SERIAL_8N1`.  
 
 ## Examples
-- [ModbusRTUMasterExample](https://github.com/CMB27/ModbusRTUMaster/blob/main/examples/ModbusRTUMasterExample/ModbusRTUMasterExample.ino)
-- [ModbusRTUMasterProbe](https://github.com/CMB27/ModbusRTUMaster/blob/main/examples/ModbusRTUMasterProbe/ModbusRTUMasterProbe.ino)
+- [ModbusRTUMasterExample](examples/ModbusRTUMasterExample/ModbusRTUMasterExample.ino)
+- [ModbusRTUMasterProbe](examples/ModbusRTUMasterProbe/ModbusRTUMasterProbe.ino)
+
+These local sketches are maintained against the compatibility API and are part
+of the embedded compile gate. Do not substitute examples from a moving upstream
+branch: its API contract differs from this line.
 
 ## Methods
 

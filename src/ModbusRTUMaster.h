@@ -6,6 +6,16 @@
 #include "ModbusRTUComm.h"
 #include "ModbusRTUMasterLock.h"
 
+// Standard unit-zero broadcasts and FC 0x45 targeted broadcasts return without
+// reading a response. Compatibility therefore depends on Comm preserving its
+// post-transmit quiet period and blocking the next TX until that gate expires.
+// An older Comm can share the same writeAdu() signature while silently lacking
+// that ordering contract, so reject the mismatched tuple at compile time.
+#if !defined(MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE) || \
+    MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE != 1
+#error "ModbusRTUMaster requires MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE=1 from the pinned ModbusRTUComm"
+#endif
+
 // Targeted broadcast (FC 0x45)
 // ----------------------------
 // The master can address a specific slave using Modbus function 0x45 while

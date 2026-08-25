@@ -23,6 +23,26 @@ common_flags=(
   -Itest/support
 )
 
+# A historical/upstream Comm has a compatible writeAdu() signature but does not
+# guarantee that a no-response frame delays the next TX. Prove that such a
+# mismatched dependency tuple is rejected instead of compiling with subtly
+# different broadcast ordering.
+if g++ "${common_flags[@]}" \
+    -DMBUS_TEST_OMIT_NO_RESPONSE_GATE_CAPABILITY=1 \
+    -Isrc \
+    -c test/comm_capability_compile.cpp \
+    -o "${build_dir}/incompatible-comm.o" \
+    > "${build_dir}/incompatible-comm.log" 2>&1; then
+  echo "Master compiled without the required Comm no-response gate" >&2
+  exit 1
+fi
+if ! grep -Fq 'MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE=1' \
+    "${build_dir}/incompatible-comm.log"; then
+  cat "${build_dir}/incompatible-comm.log" >&2
+  echo "Master failed for an unexpected reason in the Comm capability gate" >&2
+  exit 1
+fi
+
 g++ "${common_flags[@]}" -Isrc \
   test/master_trace.cpp \
   test/support/ModbusADU.cpp \
@@ -144,5 +164,6 @@ fi
 
 scenario_count=$(wc -l < test/fixtures/ogm_portable_2055adb_master.trace)
 echo "Master compatibility: ${scenario_count} frozen trace scenarios matched"
+echo "Master dependency: missing Comm no-response gate was rejected"
 echo "Master codegen: exact disassembly, symbols, and ${candidate_size}-byte object footprint matched"
 echo "Master stack: exact per-function usage matched (maximum ${candidate_stack_max} bytes)"

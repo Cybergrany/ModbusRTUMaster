@@ -22,9 +22,13 @@
     },
     "ModbusRTUComm": {
       "url": "https://github.com/Cybergrany/ModbusRTUComm.git",
-      "commit": "d65041e35a1d0ed77200bb887fee2f9b89f0a682"
+      "commit": "10477dd4af395331c86692f03f9d0c5c709fa684",
+      "required_capabilities": {
+        "MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE": 1
+      }
     }
   },
+  "arduino_dependency_policy": "manual immutable revisions; no mutable library.properties depends",
   "ogm_functional_replay": {
     "status": "software_candidate_consumer_gate_pending",
     "source_anchor": {
@@ -41,16 +45,20 @@
       "92625a1de9faae6c7098714a16d13442e3b23370"
     ],
     "candidate_files": {
-      "src/ModbusRTUMaster.h": "104ec4f3fea0dc1cbd4df4eacdd349e2cc1fa781be11ce33494c9faa9fb3315b",
+      "src/ModbusRTUMaster.h": "5487c6c253d27fa522ea15283906e9315067d99c47183b1cc5b38eb3d8023f81",
       "src/ModbusRTUMaster.cpp": "d601cf073463eeaff308737724acbe775d6c34aec1690d7076ea974b2715032b",
       "src/ModbusRTUMasterLock.h": "bd1ba1ccc44db63ec79dc56a4684e05845cf98532abbb196cde9d43e06c4501d"
     },
     "native_validation": {
       "frozen_trace_scenarios": 45,
+      "comm_no_response_gate_negative_compile": "passed",
+      "optimized_disassembly_parity": "exact",
       "optimized_symbol_parity": "exact",
+      "stack_usage_parity": "exact",
+      "max_host_fixture_stack_bytes": 400,
       "optimized_object_footprint_bytes": 8435,
       "strict_paired_hot_path": "passed",
-      "functional_comm_pin": "d65041e35a1d0ed77200bb887fee2f9b89f0a682",
+      "functional_comm_pin": "10477dd4af395331c86692f03f9d0c5c709fa684",
       "master_comm_native_link": "passed",
       "arduino_giga_mbed_compile": {
         "status": "passed",
@@ -61,6 +69,23 @@
         "status": "passed_compile_only_ram_exceeds_target",
         "flash_bytes": 12360,
         "ram_bytes": 3205
+      },
+      "arduino_examples_compile": {
+        "giga_mbed_general": {
+          "status": "passed",
+          "flash_bytes": 118968,
+          "ram_bytes": 51728
+        },
+        "nano_avr_general": {
+          "status": "passed_compile_only_ram_exceeds_target",
+          "flash_bytes": 15352,
+          "ram_bytes": 3781
+        },
+        "nano_avr_probe": {
+          "status": "passed_compile_only_ram_exceeds_target",
+          "flash_bytes": 17816,
+          "ram_bytes": 3735
+        }
       }
     },
     "remaining_gates": [

@@ -10,6 +10,9 @@
 #include <vector>
 
 #define MBUS_RTU_COMM_HAS_ONE_SHOT_GAPS 1
+#if !defined(MBUS_TEST_OMIT_NO_RESPONSE_GATE_CAPABILITY)
+#define MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE 1
+#endif
 
 enum ModbusRTUCommError : uint8_t {
   MODBUS_RTU_COMM_SUCCESS = 0,

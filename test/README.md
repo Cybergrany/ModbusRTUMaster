@@ -30,6 +30,11 @@ byte-for-byte identical to each other and to the checked-in golden trace. The
 - exact `lock -> unlock -> write` and `write -> read -> lock -> unlock`
   ordering where those spans apply.
 
+Before running the trace oracle, the suite also compiles against a deliberately
+incompatible Comm header. That negative build must fail on the missing
+`MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE=1` contract, preventing standard or FC
+`0x45` broadcasts from silently losing their next-transmit delay.
+
 The default run also compares normalized optimized disassembly (including
 relocations), symbol sizes, total object footprint and every GCC stack-usage
 record with the frozen OGM implementation. These are deterministic
@@ -59,12 +64,13 @@ test/run_arduino_compile_tests.sh
 ```
 
 The script refuses a dirty Comm checkout or a Comm `HEAD` other than the exact
-SHA in `library.json`. It uses the byte-frozen ADU fixture and passes only
-manifest-less source directories to PlatformIO, so mutable registry dependency
-resolution cannot change the tested tuple. By default it compiles the general
-example for GIGA/mbed and Nano/AVR, the AVR Probe for Nano, and the complete OGM
-API fixture for both. Override the board ids with `MBUS_MBED_TEST_BOARD` and
-`MBUS_AVR_TEST_BOARD` when checking another supported pair.
+SHA in `library.json`. It first links the real Master/Comm/ADU production tuple
+as strict C++11. It then uses manifest-less staged source directories for
+PlatformIO, so mutable registry dependency resolution cannot change the tested
+tuple. By default it compiles the general example for GIGA/mbed and Nano/AVR,
+the AVR Probe for Nano, and the complete OGM API fixture for both. Override the
+board ids with `MBUS_MBED_TEST_BOARD` and `MBUS_AVR_TEST_BOARD` when checking
+another supported pair.
 
 ## Fixture ownership
 
