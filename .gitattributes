@@ -1,0 +1,3 @@
+# Preserve the exact pinned ModbusADU fixture byte-for-byte. Its historical
+# header contains one whitespace-only line covered by test/frozen/SHA256SUMS.
+test/support/ModbusADU.h whitespace=-blank-at-eol
