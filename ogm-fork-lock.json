@@ -42,7 +42,8 @@
     },
     "implementation_commits": [
       "b6569fcfcaf7e2cb4badeff2d9a39969b750b45b",
-      "92625a1de9faae6c7098714a16d13442e3b23370"
+      "92625a1de9faae6c7098714a16d13442e3b23370",
+      "d45ca427d6ec002c2c99fdb5106cc27b3d97fc03"
     ],
     "candidate_files": {
       "src/ModbusRTUMaster.h": "5487c6c253d27fa522ea15283906e9315067d99c47183b1cc5b38eb3d8023f81",

@@ -58,7 +58,9 @@ state, generated register layout or bridge topology entered this repository.
 Implementation commit `b6569fcfcaf7e2cb4badeff2d9a39969b750b45b`
 contains the neutral replay. Commit
 `92625a1de9faae6c7098714a16d13442e3b23370` freezes the exact source oracle,
-ADU snapshot and 45-scenario trace gate.
+ADU snapshot and 45-scenario trace gate. Commit
+`d45ca427d6ec002c2c99fdb5106cc27b3d97fc03` pins the final Comm tuple and
+makes the no-response ordering capability a fail-closed compile contract.
 
 Native validation currently establishes exact candidate/oracle traces for
 request bytes, CRCs, response/error mapping, FC `0x45`, standard broadcasts,
