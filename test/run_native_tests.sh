@@ -54,6 +54,7 @@ codegen_flags=(
   -fno-rtti
   -ffunction-sections
   -fdata-sections
+  -fstack-usage
 )
 
 g++ "${codegen_flags[@]}" -Isrc \
@@ -70,12 +71,39 @@ nm -S --size-sort --defined-only "${build_dir}/oracle.o" \
   | awk '{print $2, $3, $4}' > "${build_dir}/oracle.nm"
 diff -u "${build_dir}/oracle.nm" "${build_dir}/candidate.nm"
 
+# Size parity alone cannot detect a same-sized instruction substitution. Compare
+# the complete disassembly and relocation stream, omitting only objdump's input
+# filename banner so the differently named object files remain comparable.
+objdump -drwC "${build_dir}/candidate.o" \
+  | sed -n '/^Disassembly of section/,$p' \
+  > "${build_dir}/candidate.disassembly"
+objdump -drwC "${build_dir}/oracle.o" \
+  | sed -n '/^Disassembly of section/,$p' \
+  > "${build_dir}/oracle.disassembly"
+diff -u "${build_dir}/oracle.disassembly" \
+  "${build_dir}/candidate.disassembly"
+
+# GCC prefixes each stack-usage record with the source path and line number.
+# Those locations intentionally differ between src/ and the frozen oracle, so
+# strip only that location and require every function's remaining stack record
+# (bytes plus static/dynamic classification) to be identical.
+sed -E 's|^[^:]+:[0-9]+:[0-9]+:||' "${build_dir}/candidate.su" \
+  > "${build_dir}/candidate.normalized.su"
+sed -E 's|^[^:]+:[0-9]+:[0-9]+:||' "${build_dir}/oracle.su" \
+  > "${build_dir}/oracle.normalized.su"
+diff -u "${build_dir}/oracle.normalized.su" \
+  "${build_dir}/candidate.normalized.su"
+
 candidate_size=$(size "${build_dir}/candidate.o" | awk 'NR == 2 {print $4}')
 oracle_size=$(size "${build_dir}/oracle.o" | awk 'NR == 2 {print $4}')
 if [[ "${candidate_size}" != "${oracle_size}" ]]; then
   echo "Object footprint changed: candidate=${candidate_size}, oracle=${oracle_size}" >&2
   exit 1
 fi
+
+candidate_stack_max=$(awk -F '\t' \
+  'BEGIN { max = 0 } { if ($2 + 0 > max) max = $2 + 0 } END { print max }' \
+  "${build_dir}/candidate.normalized.su")
 
 if [[ "${MBUS_STRICT_PERFORMANCE:-0}" == "1" ]]; then
   benchmark_flags=("${common_flags[@]}" -O3 -DNDEBUG)
@@ -103,9 +131,9 @@ if [[ "${MBUS_STRICT_PERFORMANCE:-0}" == "1" ]]; then
   oracle_median=$(sed -n '4p' "${build_dir}/oracle-times-sorted")
   candidate_median=$(sed -n '4p' "${build_dir}/candidate-times-sorted")
 
-  # Timing is an intentionally opt-in host signal. The default exact codegen
-  # gate is deterministic; this wider bound catches a material slowdown while
-  # tolerating ordinary scheduler and CPU-frequency noise.
+  # Timing is an intentionally opt-in host signal. The default disassembly and
+  # stack gates are deterministic; this wider bound catches a material slowdown
+  # while tolerating ordinary scheduler and CPU-frequency noise.
   if ! awk -v candidate="${candidate_median}" -v oracle="${oracle_median}" \
       'BEGIN { exit(candidate <= oracle * 1.20 ? 0 : 1) }'; then
     echo "Hot path slowed by more than 20%: candidate=${candidate_median}us, oracle=${oracle_median}us" >&2
@@ -116,4 +144,5 @@ fi
 
 scenario_count=$(wc -l < test/fixtures/ogm_portable_2055adb_master.trace)
 echo "Master compatibility: ${scenario_count} frozen trace scenarios matched"
-echo "Master codegen: exact symbols and ${candidate_size}-byte object footprint matched"
+echo "Master codegen: exact disassembly, symbols, and ${candidate_size}-byte object footprint matched"
+echo "Master stack: exact per-function usage matched (maximum ${candidate_stack_max} bytes)"
