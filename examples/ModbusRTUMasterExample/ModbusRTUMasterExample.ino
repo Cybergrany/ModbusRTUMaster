@@ -44,6 +44,11 @@
  * From what I can tell flush() is not properly implemented with Serial on this board.
  * ModbusRTUMaster depends on flush() to know when to set the DE and RE pins LOW.
  *
+ * The board table above is retained from the original upstream example. The
+ * OGM compatibility line has not revalidated every listed board. In particular,
+ * its begin() API accepts only baud and serial configuration; UART drain and
+ * direction-pin workarounds belong to the pinned ModbusRTUComm/platform layer.
+ *
  * Circuit:
  *                                                  VCC                                                                 0.1µF Capacitor
  *                                                   ^                            Arduino Board                        /
@@ -118,26 +123,6 @@
 #define MODBUS_BAUD 38400
 #define MODBUS_CONFIG SERIAL_8N1
 
-// Pre delay is a microseconds delay after the DE and RE pins go HIGH and before Serial transmission begins.
-// Post delay is a microseconds delay after Serial transmission ends and before the DE and RE pins go LOW.
-// Normally you would leave these at 0, but there are several boards that need a post delay in order for the library to function.
-#define MODBUS_PRE_DELAY 0
-#if defined(ARDUINO_UNOR4_MINIMA) || defined(ARDUINO_UNOR4_WIFI) || defined(ARDUINO_GIGA) || (defined(ARDUINO_NANO_RP2040_CONNECT) && defined(ARDUINO_ARCH_MBED))
-  // Serial1.flush() for these boards or board/core combination returns one byte too soon.
-  // This messes up the operation of the DE and RE pins, causing communication errors.
-  // A postDelay of one byte length is calculated here.
-  #if (MODBUS_CONFIG == SERIAL_8E2) || (MODBUS_CONFIG == SERIAL_8O2)
-    #define MODBUS_BITS_PER_CHAR 12
-  #elif (MODBUS_CONFIG == SERIAL_8N2) || (MODBUS_CONFIG == SERIAL_8E1) || (MODBUS_CONFIG == SERIAL_8O1)
-    #define MODBUS_BITS_PER_CHAR 11
-  #else
-    #define MODBUS_BITS_PER_CHAR 10
-  #endif
-  #define MODBUS_POST_DELAY ((MODBUS_BITS_PER_CHAR * 1000000) / MODBUS_BAUD)
-#else
-  #define MODBUS_POST_DELAY 0
-#endif
-
 #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)
   // The ATmega328P and ATmega168 only have one HardwareSerial port, and on Arduino boards it is usually connected to a USB/UART bridge.
   // So, for these boards, we will use SoftwareSerial with the lbrary, leaving the HardwareSerial port available to send debugging messages.
@@ -185,33 +170,22 @@ uint16_t inputRegisters[numInputRegisters];
 unsigned long transactionCounter = 0;
 unsigned long errorCounter = 0;
 
-const char* errorStrings[] = {
-  "success",
-  "invalid id",
-  "invalid buffer",
-  "invalid quantity",
-  "response timeout",
-  "frame error",
-  "crc error",
-  "unknown comm error",
-  "unexpected id",
-  "exception response",
-  "unexpected function code",
-  "unexpected response length",
-  "unexpected byte count",
-  "unexpected address",
-  "unexpected value",
-  "unexpected quantity"
-};
-
-
-
-void printLog(uint8_t unitId, uint8_t functionCode, uint16_t startingAddress, uint16_t quantity, uint8_t error) {
+void printLog(uint8_t unitId, uint8_t functionCode, uint16_t startingAddress,
+              uint16_t quantity, ModbusRTUMasterError error) {
   transactionCounter++;
-  if (error) errorCounter++;
+  if (error != MODBUS_RTU_MASTER_SUCCESS) errorCounter++;
   char string[128];
-  if (error == MODBUS_RTU_MASTER_EXCEPTION_RESPONSE) sprintf(string, "%ld %ld %02X %02X %04X %04X %s: %02X\n", transactionCounter, errorCounter, unitId, functionCode, startingAddress, quantity, errorStrings[error], modbus.getExceptionResponse());
-  else sprintf(string, "%ld %ld %02X %02X %04X %04X %s\n", transactionCounter, errorCounter, unitId, functionCode, startingAddress, quantity, errorStrings[error]);
+  if (error == MODBUS_RTU_MASTER_EXCEPTION_RESPONSE) {
+    sprintf(string, "%lu %lu %02X %02X %04X %04X %s: %02X\n",
+            transactionCounter, errorCounter, unitId, functionCode,
+            startingAddress, quantity, modbusRtuMasterErrorToString(error),
+            modbus.getExceptionResponse());
+  }
+  else {
+    sprintf(string, "%lu %lu %02X %02X %04X %04X %s\n",
+            transactionCounter, errorCounter, unitId, functionCode,
+            startingAddress, quantity, modbusRtuMasterErrorToString(error));
+  }
   Serial.print(string);
 }
 
@@ -246,9 +220,9 @@ void setup() {
     // This board/core combination does not get the timings right for receiving modbus data.
     // Telling the ModbusRTUMaster library that we are operating at a lower baud rate, causes it to loosen the timing tolerances for receiving messages.
     // This is less than ideal, but it works.
-    modbus.begin(MODBUS_BAUD / 4, MODBUS_CONFIG, MODBUS_PRE_DELAY, MODBUS_POST_DELAY);
+    modbus.begin(MODBUS_BAUD / 4, MODBUS_CONFIG);
   #else
-    modbus.begin(MODBUS_BAUD, MODBUS_CONFIG, MODBUS_PRE_DELAY, MODBUS_POST_DELAY);
+    modbus.begin(MODBUS_BAUD, MODBUS_CONFIG);
   #endif
 }
 
@@ -260,19 +234,19 @@ void loop() {
 
   uint8_t unitId = 1;
   uint16_t startingAddress[4] = {0, 0, 0, 0};
-  uint8_t error;
+  ModbusRTUMasterError error;
 
   error = modbus.writeMultipleHoldingRegisters(unitId, startingAddress[0], holdingRegisters, numHoldingRegisters);
   printLog(unitId, 16, startingAddress[0], numHoldingRegisters, error);
 
   error = modbus.writeMultipleCoils(unitId, startingAddress[1], coils, numCoils);
-  printLog(unitId, 15, startingAddress[1], numHoldingRegisters, error);
+  printLog(unitId, 15, startingAddress[1], numCoils, error);
 
   error = modbus.readInputRegisters(unitId, startingAddress[2], inputRegisters, numInputRegisters);
-  printLog(unitId, 4, startingAddress[2], numHoldingRegisters, error);
+  printLog(unitId, 4, startingAddress[2], numInputRegisters, error);
 
   error = modbus.readDiscreteInputs(unitId, startingAddress[3], discreteInputs, numDiscreteInputs);
-  printLog(unitId, 2, startingAddress[3], numHoldingRegisters, error);
+  printLog(unitId, 2, startingAddress[3], numDiscreteInputs, error);
   
   analogWrite(ledPins[0], inputRegisters[0]);
   analogWrite(ledPins[1], inputRegisters[1]);

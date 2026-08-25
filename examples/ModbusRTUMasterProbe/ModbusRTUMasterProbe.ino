@@ -15,8 +15,8 @@
   
   Created: 2023-07-15
   By: C. M. Bulliner
-  Modified: 2023-07-29
-  By: C. M. Bulliner
+  Compatibility API update: 2026-08-25
+  By: OpenGameMaster contributors
   
 */
 
@@ -28,7 +28,7 @@ const uint8_t rxPin = 10;
 const uint8_t txPin = 11;
 const uint8_t dePin = 13;
 
-const uint32_t baudRates[8] = {1200, 2400, 4800, 9600, 16200, 38400, 57600, 115200};
+const uint32_t baudRates[8] = {1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200};
 const int baudEEPROMAddress = 0;
 
 SoftwareSerial mySerial(rxPin, txPin);
@@ -69,12 +69,11 @@ void selectBaud() {
   Serial.println(baud);
 }
 
-void processError() {
-  if (modbus.getTimeoutFlag()) {
+void processError(ModbusRTUMasterError error) {
+  if (error == MODBUS_RTU_MASTER_RESPONSE_TIMEOUT) {
     Serial.println(F("Connection timed out"));
-    modbus.clearTimeoutFlag();
   }
-  else if (modbus.getExceptionResponse() != 0) {
+  else if (error == MODBUS_RTU_MASTER_EXCEPTION_RESPONSE) {
     Serial.print(F("Received exception response: "));
     Serial.print(modbus.getExceptionResponse());
     switch (modbus.getExceptionResponse()) {
@@ -94,16 +93,18 @@ void processError() {
         Serial.println();
         break;
     }
-    modbus.clearExceptionResponse();
   }
   else {
-    Serial.println("An error occurred");
+    Serial.print(F("Modbus error: "));
+    Serial.println(modbusRtuMasterErrorToString(error));
   }
 }
 
 void readSingleCoil(uint8_t id, uint16_t address) {
   bool value = 0;
-  if (modbus.readCoils(id, address, &value, 1)) {
+  const ModbusRTUMasterError error =
+      modbus.readCoils(id, address, &value, 1);
+  if (error == MODBUS_RTU_MASTER_SUCCESS) {
     Serial.print(F("Read value of "));
     Serial.print(value);
     Serial.print(F(" from coil address "));
@@ -111,12 +112,14 @@ void readSingleCoil(uint8_t id, uint16_t address) {
     Serial.print(F(" on slave/server device "));
     Serial.println(id);
   }
-  else processError();
+  else processError(error);
 }
 
 void readSingleDiscreteInput(uint8_t id, uint16_t address) {
   bool value = 0;
-  if (modbus.readDiscreteInputs(id, address, &value, 1)) {
+  const ModbusRTUMasterError error =
+      modbus.readDiscreteInputs(id, address, &value, 1);
+  if (error == MODBUS_RTU_MASTER_SUCCESS) {
     Serial.print(F("Read value of "));
     Serial.print(value);
     Serial.print(F(" from discrete input address "));
@@ -124,12 +127,14 @@ void readSingleDiscreteInput(uint8_t id, uint16_t address) {
     Serial.print(F(" on slave/server device "));
     Serial.println(id);
   }
-  else processError();
+  else processError(error);
 }
 
 void readSingleHoldingRegister(uint8_t id, uint16_t address) {
   uint16_t value = 0;
-  if (modbus.readHoldingRegisters(id, address, &value, 1)) {
+  const ModbusRTUMasterError error =
+      modbus.readHoldingRegisters(id, address, &value, 1);
+  if (error == MODBUS_RTU_MASTER_SUCCESS) {
     Serial.print(F("Read value of "));
     Serial.print(value);
     Serial.print(F(" from holding register address "));
@@ -137,12 +142,14 @@ void readSingleHoldingRegister(uint8_t id, uint16_t address) {
     Serial.print(F(" on slave/server device "));
     Serial.println(id);
   }
-  else processError();
+  else processError(error);
 }
 
 void readSingleInputRegister(uint8_t id, uint16_t address) {
   uint16_t value = 0;
-  if (modbus.readInputRegisters(id, address, &value, 1)) {
+  const ModbusRTUMasterError error =
+      modbus.readInputRegisters(id, address, &value, 1);
+  if (error == MODBUS_RTU_MASTER_SUCCESS) {
     Serial.print(F("Read value of "));
     Serial.print(value);
     Serial.print(F(" from input register address "));
@@ -150,7 +157,7 @@ void readSingleInputRegister(uint8_t id, uint16_t address) {
     Serial.print(F(" on slave/server device "));
     Serial.println(id);
   }
-  else processError();
+  else processError(error);
 }
 
 void readValue() {
@@ -190,7 +197,9 @@ void writeSingleCoil(uint8_t id, uint16_t address) {
   Serial.println(F("0 - False/off"));
   Serial.println(F("1 - True/on"));
   bool value = selectValue(0, 1);
-  if (modbus.writeSingleCoil(id, address, value)) {
+  const ModbusRTUMasterError error =
+      modbus.writeSingleCoil(id, address, value);
+  if (error == MODBUS_RTU_MASTER_SUCCESS) {
     Serial.print(F("Wrote value of "));
     Serial.print(value);
     Serial.print(F(" to coil address "));
@@ -198,14 +207,16 @@ void writeSingleCoil(uint8_t id, uint16_t address) {
     Serial.print(F(" on slave/server device "));
     Serial.println(id);
   }
-  else processError();
+  else processError(error);
 }
 
 void writeSingleHoldingRegister(uint8_t id, uint16_t address) {
   Serial.println(F("Enter value to write"));
   Serial.println(F("Valid entries: 0 - 65535"));
   uint16_t value = selectValue(0, 65535);
-  if (modbus.writeSingleHoldingRegister(id, address, value)) {
+  const ModbusRTUMasterError error =
+      modbus.writeSingleHoldingRegister(id, address, value);
+  if (error == MODBUS_RTU_MASTER_SUCCESS) {
     Serial.print(F("Wrote value of "));
     Serial.print(value);
     Serial.print(F(" to holding register address "));
@@ -213,7 +224,7 @@ void writeSingleHoldingRegister(uint8_t id, uint16_t address) {
     Serial.print(F(" on slave/server device "));
     Serial.println(id);
   }
-  else processError();
+  else processError(error);
 }
 
 void writeValue() {

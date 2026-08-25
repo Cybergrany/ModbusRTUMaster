@@ -33,9 +33,10 @@ until the validation gates in the provenance document are satisfied.
 
 The current native gate compares 45 deterministic scenarios against the exact
 `OGM_Portable` `2055adb` source oracle. Request bytes and CRCs, parsed values,
-all error paths and lock/Comm ordering match. Optimized symbol sizes and object
-footprint are also exact. See [test/README.md](test/README.md) for the commands
-and the remaining hardware boundary.
+all error paths and lock/Comm ordering match. Normalized optimized disassembly,
+per-function stack usage, symbol sizes and object footprint are also exact. See
+[test/README.md](test/README.md) for the commands and the remaining hardware
+boundary.
 
 ## Installing a validated compatibility release
 

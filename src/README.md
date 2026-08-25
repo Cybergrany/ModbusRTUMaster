@@ -127,7 +127,8 @@ capabilities as the validated OGM source anchor.
 Run `test/run_native_tests.sh` from the repository root. It differentially
 compares the fork with frozen OGM Portable commit `2055adb`, including request
 bytes/CRCs, result buffers, error values, no-response paths and event ordering.
-It also requires exact optimized symbol/object-size parity. The optional
+It also requires exact normalized optimized disassembly, per-function stack
+usage, symbol and object-size parity. The optional
 `MBUS_STRICT_PERFORMANCE=1` mode adds a paired hot-path timing check.
 
 Those host gates deliberately stop at the Master/Comm boundary. Physical UART
