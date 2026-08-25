@@ -35,6 +35,19 @@ incompatible Comm header. That negative build must fail on the missing
 `MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE=1` contract, preventing standard or FC
 `0x45` broadcasts from silently losing their next-transmit delay.
 
+The native and Arduino entrypoints also run `check_example_contracts.py`. The
+Probe uses AVR `SoftwareSerial`, whose physical baud cannot be meaningfully
+exercised by the host fixture, so this static gate requires both startup and
+interactive changes to use the shared `end -> SoftwareSerial::begin ->
+ModbusRTUMaster::begin` ordering. Embedded compilation then verifies that the
+guarded source still matches the real AVR APIs.
+
+`check_package_contracts.py` requires `library.json`, `library.properties` and
+the fork lock to agree on the `2.0.0-ogm.1` prerelease, identifies the
+Cybergrany fork in both manifests, and rejects mutable Arduino named
+dependencies. Each PlatformIO dependency must be an exact `URL#40hex` pin whose
+URL and commit exactly match `ogm-fork-lock.json`.
+
 The default run also compares normalized optimized disassembly (including
 relocations), symbol sizes, total object footprint and every GCC stack-usage
 record with the frozen OGM implementation. These are deterministic

@@ -11,6 +11,10 @@ The class supports FC 1, 2, 3, 4, 5, 6, 15 and 16 with the historical
 `ModbusRTUMasterError` return values. Unit id zero remains valid only for write
 operations and is fire-and-forget.
 
+Construction sets the response-start timeout to 500 milliseconds, matching the
+validated OGM behavior. `setTimeout()` overrides that value in milliseconds;
+it does not change RTU inter-character or inter-frame timing.
+
 ```cpp
 #include <ModbusRTUMaster.h>
 

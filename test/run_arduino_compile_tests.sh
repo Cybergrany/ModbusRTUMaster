@@ -42,6 +42,8 @@ fi
 # as well: both repositories call their source directory `src`, and passing the
 # two directories directly would make PlatformIO collapse that name collision.
 (cd "${repo_dir}" && sha256sum -c test/frozen/SHA256SUMS)
+python3 "${repo_dir}/test/check_example_contracts.py"
+python3 "${repo_dir}/test/check_package_contracts.py"
 cp -R "${MBUS_RTU_COMM_SOURCE_DIR}/." "${comm_dir}/"
 cp "${repo_dir}/test/support/ModbusADU.h" "${adu_dir}/ModbusADU.h"
 cp "${repo_dir}/test/support/ModbusADU.cpp" "${adu_dir}/ModbusADU.cpp"

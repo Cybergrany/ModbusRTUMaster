@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "repository": "ModbusRTUMaster",
+  "package_version": "2.0.0-ogm.1",
   "compatibility_branch": "ogm/compat",
   "upstream": {
     "url": "https://github.com/CMB27/ModbusRTUMaster.git",
@@ -52,6 +53,10 @@
     },
     "native_validation": {
       "frozen_trace_scenarios": 45,
+      "dependency_pin_contract": "passed",
+      "package_identity_contract": "passed",
+      "platformio_package_pack": "passed",
+      "probe_serial_configuration_contract": "passed",
       "comm_no_response_gate_negative_compile": "passed",
       "optimized_disassembly_parity": "exact",
       "optimized_symbol_parity": "exact",
@@ -84,7 +89,7 @@
         },
         "nano_avr_probe": {
           "status": "passed_compile_only_ram_exceeds_target",
-          "flash_bytes": 17816,
+          "flash_bytes": 18282,
           "ram_bytes": 3735
         }
       }

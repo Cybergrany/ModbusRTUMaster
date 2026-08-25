@@ -9,6 +9,8 @@ trap 'rm -rf -- "${build_dir}"' EXIT
 cd "${repo_dir}"
 
 sha256sum -c test/frozen/SHA256SUMS
+python3 test/check_example_contracts.py
+python3 test/check_package_contracts.py
 
 common_flags=(
   -std=c++11

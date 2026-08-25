@@ -34,6 +34,16 @@ const int baudEEPROMAddress = 0;
 SoftwareSerial mySerial(rxPin, txPin);
 ModbusRTUMaster modbus(mySerial, dePin); // serial port, driver enable pin for rs-485 (optional)
 
+void configureModbusBaud(uint32_t baud) {
+  // ModbusRTUMaster::begin() derives protocol timing; it deliberately does not
+  // start or reconfigure the supplied Stream. Stop reception while changing
+  // SoftwareSerial timing, restart the UART first, then update Modbus timing so
+  // no request can use a baud configuration the serial port has not adopted.
+  mySerial.end();
+  mySerial.begin(baud);
+  modbus.begin(baud);
+}
+
 long requestUserInput() {
   Serial.print("> ");
   while (!Serial.available()) {}
@@ -63,8 +73,8 @@ void selectBaud() {
   Serial.println(F("7 -- 57600"));
   Serial.println(F("8 - 115200"));
   uint32_t baud = baudRates[selectValue(1, 8) - 1];
+  configureModbusBaud(baud);
   EEPROM.put(baudEEPROMAddress, baud);
-  modbus.begin(baud);
   Serial.print(F("Baud rate set to "));
   Serial.println(baud);
 }
@@ -265,7 +275,7 @@ void setup() {
     baud = 38400;
     EEPROM.put(baudEEPROMAddress, baud);
   }
-  modbus.begin(baud); // modbus baud rate, config (optional)
+  configureModbusBaud(baud);
   modbus.setTimeout(100);
   Serial.print(F("Modbus serial port configuration: "));
   Serial.print(baud);

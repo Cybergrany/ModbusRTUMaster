@@ -27,6 +27,10 @@ and neutral Comm capability forwarding. It deliberately does not own UART
 timing, drain/DE/RE, receive recovery, tasks or diagnostics policy; those live
 in the separately reviewed ModbusRTUComm fork.
 
+Both package manifests identify this candidate as `2.0.0-ogm.1`. The OGM
+prerelease suffix is intentional: upstream already owns the distinct `2.0.0`
+identity, and compatibility-fork artifacts must not be mistaken for that tag.
+
 Check `ogm_functional_replay` in `ogm-fork-lock.json` before treating a commit
 as a migration candidate. A tag is not considered a compatibility release
 until the validation gates in the provenance document are satisfied.
@@ -207,7 +211,7 @@ ModbusRTUMaster modbus(Serial, dePin);
 ### setTimeout()
 
 #### Description
-Sets the maximum timeout in milliseconds to wait for a response after sending a request. The default is 100 milliseconds.
+Sets the maximum timeout in milliseconds to wait for the start of a response after sending a request. The compatibility constructor sets this to 500 milliseconds by default.
 
 #### Syntax
 ``` C++

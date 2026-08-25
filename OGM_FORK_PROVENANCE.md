@@ -39,6 +39,8 @@ not yet a compatibility release. `library.json` and `ogm-fork-lock.json` pin
 the separately software-gated functional ModbusRTUComm candidate
 `10477dd4af395331c86692f03f9d0c5c709fa684`. The exact Master/Comm tuple still
 requires consumer builds and a physical RS485 checkpoint before release.
+Package manifests use the unambiguous prerelease identity `2.0.0-ogm.1`; they
+do not reuse upstream's materially different `2.0.0` release identity.
 
 The replay source is the exact OGM Portable hardware-validated dependency
 anchor `2055adb449c1e767217f09f99efda32e52a0306d`. No board definitions, game
@@ -81,7 +83,7 @@ were equal.
 
 Both maintained public sketches are included in the same exact-tuple gate. The
 general example passes GIGA/mbed (`118968` flash, `51728` RAM) and Nano/AVR
-(`15352` flash, `3781` RAM); the interactive Probe passes Nano/AVR (`17816`
+(`15352` flash, `3781` RAM); the interactive Probe passes Nano/AVR (`18282`
 flash, `3735` RAM). The AVR example results have the same compile-only SRAM
 qualification. The pinned Comm candidate independently passes its 39-scenario
 native trace, trace-off/C++11 matrices, drain-failure and separate-production-TU
