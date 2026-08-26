@@ -56,7 +56,7 @@ The `library.json` at that pinned revision also pins the corresponding
 `Cybergrany/ModbusRTUComm` commit and the reviewed CMB27 `ModbusADU` commit.
 Do not override those dependencies independently unless the complete tuple has
 been revalidated. The seed commit is suitable for provenance inspection and
-compile experiments only; it is not the eventual OGM dependency pin.
+compile experiments only; it is not the immutable OGM dependency pin.
 
 Arduino Library Manager metadata cannot pin dependencies to Git commits, so
 `library.properties` intentionally declares no mutable named dependencies.
@@ -155,11 +155,10 @@ combined master/bridge physical checkpoints recorded in
 
 ## Historical upstream documentation
 
-The reference below is retained from the CMB27 branch point. It contains known
-documentation drift from the compatibility header (for example, some methods
-are described as returning `bool`). For compatibility work, the pinned source
-and the example above are authoritative until the replayed API is documented
-and tagged.
+The reference below is retained from the CMB27 branch point. Return-value
+descriptions have been corrected for the compatibility API, but the pinned
+source and the example above remain authoritative if historical prose and code
+ever disagree.
 
 > [!WARNING]  
 > ModbusRTUMaster is currently undergoing a redesign.
@@ -275,7 +274,7 @@ modbus.readCoils(slaveId, startAddress, buffer, quantity)
 - `quantity`: the number of coil values to read. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
 
 #### Returns
-`true` if the request was sent and a valid response was received. `false` otherwise. Data type: `bool`.
+A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means a valid response was received. Other values identify validation, transport, response, or exception errors.
 
 #### Example
 ``` C++
@@ -303,7 +302,7 @@ modbus.readDiscreteInputs(slaveId, startAddress, buffer, quantity)
 - `quantity`: the number of discrete input values to read. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
 
 #### Returns
-`true` if the request was sent and a valid response was received. `false` otherwise. Data type: `bool`.
+A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means a valid response was received. Other values identify validation, transport, response, or exception errors.
 
 #### Example
 ``` C++
@@ -331,7 +330,7 @@ modbus.readHoldingRegisters(slaveId, startAddress, buffer, quantity)
 - `quantity`: the number of holding register values to read. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
 
 #### Returns
-`true` if the request was sent and a valid response was received. `false` otherwise. Data type: `bool`.
+A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means a valid response was received. Other values identify validation, transport, response, or exception errors.
 
 #### Example
 ``` C++
@@ -359,7 +358,7 @@ modbus.readInputRegisters(slaveId, startAddress, buffer, quantity)
 - `quantity`: the number of input register values to read. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
 
 #### Returns
-`true` if the request was sent and a valid response was received. `false` otherwise. Data type: `bool`.
+A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means a valid response was received. Other values identify validation, transport, response, or exception errors.
 
 #### Example
 ``` C++
@@ -386,7 +385,7 @@ modbus.writeSingleCoil(slaveId, address, value)
 - `value`: the value to write to the coil. Allowed data types: `bool`.
 
 #### Returns
-`true` if the request was sent and a valid response was received. `false` otherwise. Data type: `bool`.
+A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means the request was acknowledged with a valid response. Other values identify validation, transport, response, or exception errors.
 
 ---
 
@@ -407,7 +406,7 @@ modbus.writeSingleHoldingRegister(slaveId, address, value)
 - `value`: the value to write to the holding register. Allowed data types: `uint16_t`.
 
 #### Returns
-`true` if the request was sent and a valid response was received. `false` otherwise. Data type: `bool`.
+A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means the request was acknowledged with a valid response. Other values identify validation, transport, response, or exception errors.
 
 ---
 
@@ -429,7 +428,7 @@ modbus.writeMultipleCoils(slaveId, startingAddress, buffer, quantity)
 - `quantity`: the number of coil values to write. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
 
 #### Returns
-`true` if the request was sent and a valid response was received. `false` otherwise. Data type: `bool`.
+A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means the request was acknowledged with a valid response. Other values identify validation, transport, response, or exception errors.
 
 #### Example
 ``` C++
@@ -457,7 +456,7 @@ modbus.writeMultipleHoldingRegisters(slaveId, startingAddress, buffer, quantity)
 - `quantity`: the number of holding register values to write. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
 
 #### Returns
-`true` if the request was sent and a valid response was received. `false` otherwise. Data type: `bool`.
+A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means the request was acknowledged with a valid response. Other values identify validation, transport, response, or exception errors.
 
 #### Example
 ``` C++

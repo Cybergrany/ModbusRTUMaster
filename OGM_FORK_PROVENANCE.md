@@ -72,8 +72,8 @@ locks and completion order. It also rejects Comm revisions that lack the
 explicit no-response/next-TX gate. Normalized optimized disassembly,
 per-function stack usage, symbols and the 8435-byte host object footprint are
 identical; the opt-in paired hot-path benchmark also passes. This supports
-running the paired consumer builds against the pinned Comm candidate. It does
-did not replace the master-only physical RS485 checkpoint; that checkpoint and
+running the paired consumer builds against the pinned Comm candidate. It did
+not replace the master-only physical RS485 checkpoint; that checkpoint and
 the later combined master/bridge checkpoint subsequently passed for the exact
 release tuple.
 
