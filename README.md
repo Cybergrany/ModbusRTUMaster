@@ -2,10 +2,10 @@
 
 > [!IMPORTANT]
 > This branch is the OpenGameMaster compatibility line, not the current CMB27
-> development line. The functional Master replay is implemented and natively
-> differential-tested and pins an immutable software-gated Comm candidate. Do
-> not use it as an OGM replacement until the exact consumer builds and hardware
-> checkpoint are recorded and an immutable compatibility release is tagged.
+> development line. The exact Master replay at `2.0.0-ogm.1`, with its pinned
+> Comm and ADU tuple, completed the OGM consumer and physical GIGA/RS485 gates
+> with unchanged deployed slave firmware on 2026-08-26. Consume that immutable
+> tag or its full commit, not a moving branch.
 
 This repository preserves two intentionally different histories:
 
@@ -35,12 +35,12 @@ Check `ogm_functional_replay` in `ogm-fork-lock.json` before treating a commit
 as a migration candidate. A tag is not considered a compatibility release
 until the validation gates in the provenance document are satisfied.
 
-The current native gate compares 45 deterministic scenarios against the exact
+The native gate compares 45 deterministic scenarios against the exact
 `OGM_Portable` `2055adb` source oracle. Request bytes and CRCs, parsed values,
 all error paths and lock/Comm ordering match. Normalized optimized disassembly,
 per-function stack usage, symbol sizes and object footprint are also exact. See
-[test/README.md](test/README.md) for the commands and the remaining hardware
-boundary.
+[test/README.md](test/README.md) for the commands and the boundary between
+deterministic evidence and the completed, tuple-specific hardware acceptance.
 
 ## Installing a validated compatibility release
 
@@ -49,7 +49,7 @@ never a moving branch:
 
 ```ini
 lib_deps =
-  https://github.com/Cybergrany/ModbusRTUMaster.git#<validated-tag-or-40-char-commit>
+  https://github.com/Cybergrany/ModbusRTUMaster.git#2.0.0-ogm.1
 ```
 
 The `library.json` at that pinned revision also pins the corresponding
@@ -148,8 +148,10 @@ Moving source ownership into this repository must not change:
 
 Native fixtures and byte comparisons can strongly constrain those properties,
 but they cannot prove UART interrupt latency, RS485 electrical timing, scheduler
-behavior or bus contention. No Stage C bridge or hardware-validation claim is
-made by this seed documentation.
+behavior or bus contention. Those limits still apply generally; the immutable
+`2.0.0-ogm.1` tuple itself subsequently passed the scoped master-only and
+combined master/bridge physical checkpoints recorded in
+[`OGM_FORK_PROVENANCE.md`](OGM_FORK_PROVENANCE.md).
 
 ## Historical upstream documentation
 
