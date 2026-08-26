@@ -40,9 +40,9 @@ Use this library to:
 - **Optional transport diagnostics.** Detailed timing, recovery, and RX-task
   data can be forwarded without adding a second diagnostics model. See the
   [capability table](src/README.md#transport-capabilities).
-- **Deterministic compatibility tests.** Request bytes, CRCs, response parsing,
+- **Deterministic regression tests.** Request bytes, CRCs, response parsing,
   error values, call ordering, code size, and stack usage are checked against
-  a frozen reference. See [the test guide](test/README.md).
+  the current public behavior contract. See [the test guide](test/README.md).
 
 ## Quick start
 

@@ -15,7 +15,7 @@ void setup() {
   master.setPreTxGapUsOnce(100);
   master.setPostTxGapUsOnce(200);
 
-  // Compile and link every OGM extension without emitting traffic when this
+  // Compile and link every public extension without emitting traffic when this
   // fixture is accidentally flashed.
   if (exerciseApi) {
     bool coils[10] = {};

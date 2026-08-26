@@ -44,10 +44,9 @@
  * From what I can tell flush() is not properly implemented with Serial on this board.
  * ModbusRTUMaster depends on flush() to know when to set the DE and RE pins LOW.
  *
- * The board table above is retained from the original upstream example. The
- * OGM compatibility line has not revalidated every listed board. In particular,
- * its begin() API accepts only baud and serial configuration; UART drain and
- * direction-pin workarounds belong to the pinned ModbusRTUComm/platform layer.
+ * The board table above is historical and may not cover the current toolchain
+ * versions. This library's begin() accepts baud and serial configuration;
+ * UART drain and direction-pin behavior belong to ModbusRTUComm.
  *
  * Circuit:
  *                                                  VCC                                                                 0.1µF Capacitor

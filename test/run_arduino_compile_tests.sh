@@ -36,12 +36,12 @@ if [[ -n "$(git -C "${comm_repo}" status --porcelain --untracked-files=all)" ]];
   exit 1
 fi
 
-# The ADU files in support/ are byte-frozen from the immutable dependency SHA.
+# The ADU support files are checked against the immutable dependency SHA.
 # Stage only those two files so the native Comm test double in the same folder
 # can never leak into an embedded build. Stage Comm under a unique library name
 # as well: both repositories call their source directory `src`, and passing the
 # two directories directly would make PlatformIO collapse that name collision.
-(cd "${repo_dir}" && sha256sum -c test/frozen/SHA256SUMS)
+(cd "${repo_dir}" && sha256sum -c test/support/SHA256SUMS)
 python3 "${repo_dir}/test/check_example_contracts.py"
 python3 "${repo_dir}/test/check_package_contracts.py"
 cp -R "${MBUS_RTU_COMM_SOURCE_DIR}/." "${comm_dir}/"
@@ -54,7 +54,7 @@ if [[ ! -f "${comm_production_support}/Arduino.h" ]]; then
   exit 1
 fi
 
-# Link the actual Master, Comm and byte-frozen ADU production sources together
+# Link the actual Master, Comm, and checked ADU production sources together
 # under the oldest supported language mode. This catches header/capability and
 # separate-library linkage defects before the slower architecture builds.
 g++ \
@@ -96,7 +96,7 @@ avr_board=${MBUS_AVR_TEST_BOARD:-nanoatmega328}
 
 # The general example takes both its mbed HardwareSerial path and its AVR
 # SoftwareSerial path. The interactive Probe is AVR-specific. The final two
-# builds link every OGM extension through the dedicated tuple fixture.
+# builds link every public extension through the dedicated API fixture.
 compile_example "${mbed_board}" \
   "${repo_dir}/examples/ModbusRTUMasterExample/ModbusRTUMasterExample.ino"
 compile_example "${avr_board}" \
@@ -108,4 +108,4 @@ compile_example "${mbed_board}" \
 compile_example "${avr_board}" \
   "${repo_dir}/test/arduino_compile_gate/arduino_compile_gate.ino"
 
-echo "Arduino examples and OGM API fixture compiled against Comm ${actual_comm_sha}"
+echo "Arduino examples and public API fixture compiled against Comm ${actual_comm_sha}"

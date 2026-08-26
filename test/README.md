@@ -6,9 +6,9 @@ Run the deterministic native gate from the repository root:
 test/run_native_tests.sh
 ```
 
-The suite runs the current implementation and a frozen reference against the
-same deterministic ADU, transport, clock, and lock doubles. Their traces must
-match each other and the checked-in golden trace.
+The suite runs the current implementation against deterministic ADU,
+transport, clock, and lock doubles. Its output must match the checked-in public
+behavior trace.
 
 ## Coverage
 
@@ -30,9 +30,11 @@ A negative compile gate rejects a transport that does not advertise the
 required no-response gate. Static checks also keep the interactive probe's
 serial reconfiguration order consistent.
 
-The default run compares normalized optimized disassembly, relocations, symbol
-sizes, total object footprint, and compiler stack-usage records with the
-reference implementation.
+The default run also enforces optimized object and stack budgets. The defaults
+are the current public baseline: 8,435 object bytes and 400 stack bytes with
+the test toolchain. `MBUS_RTU_MASTER_MAX_OBJECT_BYTES` and
+`MBUS_RTU_MASTER_MAX_STACK_BYTES` allow a CI target to select tighter or
+toolchain-specific limits.
 
 ## Optional timing signal
 
@@ -40,9 +42,12 @@ reference implementation.
 MBUS_STRICT_PERFORMANCE=1 test/run_native_tests.sh
 ```
 
-This alternates candidate and reference samples and compares their median
-encode time. Host timing is noisy, so optimized code shape and operation
-counts remain the stronger deterministic guards.
+This runs seven hot-path samples and checks the median against
+`MBUS_RTU_MASTER_MAX_BENCHMARK_US` (default `40000`). Host timing is noisy, so
+the exact event count plus object and stack budgets remain the stronger
+deterministic guards. The benchmark warms the same path before each sample and
+pins one available CPU when `taskset` is present. Set
+`MBUS_RTU_MASTER_PERF_CPU` to select a particular allowed CPU.
 
 ## Arduino compile gates
 
@@ -62,7 +67,8 @@ for the configured AVR and mbed targets.
 
 ## Fixture ownership
 
-Frozen source and traces are test oracles, not a second implementation to
-maintain. Do not format or modernize them. The transport and ADU doubles define
-the master-layer boundary; UART drain, DE/RE edges, receive recovery, and
-electrical bus behavior belong to transport and hardware validation.
+`fixtures/master_behavior.trace` is the reviewed public behavior contract.
+Change it only with an intentional API or wire-behavior update. The transport
+and ADU doubles define the master-layer boundary; UART drain, DE/RE edges,
+receive recovery, and electrical bus behavior belong to transport and hardware
+validation.

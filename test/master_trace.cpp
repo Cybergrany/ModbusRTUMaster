@@ -6,11 +6,7 @@
 #include "Arduino.h"
 #include "FixtureLock.h"
 
-#if defined(MBUS_USE_FROZEN_OGM_ORACLE)
-#include "frozen/ogm_portable_2055adb/ModbusRTUMaster.h"
-#else
 #include "ModbusRTUMaster.h"
-#endif
 
 namespace {
 

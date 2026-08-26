@@ -130,7 +130,7 @@ These are compile-time contracts. They do not probe features at runtime.
 ## Validation boundary
 
 `test/run_native_tests.sh` checks request bytes and CRCs, parsed values, errors,
-broadcast ordering, lock ordering, optimized code shape, object size, and
-stack usage. Transport tests separately cover serial timing and recovery.
+broadcast ordering, lock ordering, object-size and stack budgets, and an
+optional hot-path budget. Transport tests separately cover serial timing and recovery.
 Neither host suite can prove UART interrupt latency or electrical RS485
 turnaround on a target board.

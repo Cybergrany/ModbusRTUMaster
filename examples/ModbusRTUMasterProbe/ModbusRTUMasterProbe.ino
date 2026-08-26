@@ -15,8 +15,8 @@
   
   Created: 2023-07-15
   By: C. M. Bulliner
-  Compatibility API update: 2026-08-25
-  By: OpenGameMaster contributors
+  Extended API update: 2026-08-25
+  By: Cybergrany contributors
   
 */
 

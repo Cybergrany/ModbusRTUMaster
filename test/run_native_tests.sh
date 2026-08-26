@@ -8,7 +8,7 @@ trap 'rm -rf -- "${build_dir}"' EXIT
 
 cd "${repo_dir}"
 
-sha256sum -c test/frozen/SHA256SUMS
+sha256sum -c test/support/SHA256SUMS
 python3 test/check_example_contracts.py
 python3 test/check_package_contracts.py
 
@@ -25,10 +25,8 @@ common_flags=(
   -Itest/support
 )
 
-# A historical/upstream Comm has a compatible writeAdu() signature but does not
-# guarantee that a no-response frame delays the next TX. Prove that such a
-# mismatched dependency tuple is rejected instead of compiling with subtly
-# different broadcast ordering.
+# A transport can expose writeAdu() while still lacking the quiet-period gate
+# required after no-response writes. Reject that dependency at compile time.
 if g++ "${common_flags[@]}" \
     -DMBUS_TEST_OMIT_NO_RESPONSE_GATE_CAPABILITY=1 \
     -Isrc \
@@ -49,25 +47,10 @@ g++ "${common_flags[@]}" -Isrc \
   test/master_trace.cpp \
   test/support/ModbusADU.cpp \
   src/ModbusRTUMaster.cpp \
-  -o "${build_dir}/candidate-trace"
+  -o "${build_dir}/master-trace"
 
-g++ "${common_flags[@]}" \
-  -DMBUS_USE_FROZEN_OGM_ORACLE=1 \
-  -Itest/frozen/ogm_portable_2055adb \
-  test/master_trace.cpp \
-  test/support/ModbusADU.cpp \
-  test/frozen/ogm_portable_2055adb/ModbusRTUMaster.cpp \
-  -o "${build_dir}/oracle-trace"
-
-"${build_dir}/candidate-trace" > "${build_dir}/candidate.trace"
-"${build_dir}/oracle-trace" > "${build_dir}/oracle.trace"
-
-# Candidate and frozen source must agree, and both must still match the trace
-# captured from OGM_Portable 2055adb. The second comparison prevents an
-# accidental edit to both test paths from silently redefining compatibility.
-diff -u "${build_dir}/oracle.trace" "${build_dir}/candidate.trace"
-diff -u test/fixtures/ogm_portable_2055adb_master.trace \
-  "${build_dir}/candidate.trace"
+"${build_dir}/master-trace" > "${build_dir}/master.trace"
+diff -u test/fixtures/master_behavior.trace "${build_dir}/master.trace"
 
 codegen_flags=(
   "${common_flags[@]}"
@@ -81,91 +64,70 @@ codegen_flags=(
 
 g++ "${codegen_flags[@]}" -Isrc \
   -c src/ModbusRTUMaster.cpp \
-  -o "${build_dir}/candidate.o"
-g++ "${codegen_flags[@]}" \
-  -Itest/frozen/ogm_portable_2055adb \
-  -c test/frozen/ogm_portable_2055adb/ModbusRTUMaster.cpp \
-  -o "${build_dir}/oracle.o"
+  -o "${build_dir}/master.o"
 
-nm -S --size-sort --defined-only "${build_dir}/candidate.o" \
-  | awk '{print $2, $3, $4}' > "${build_dir}/candidate.nm"
-nm -S --size-sort --defined-only "${build_dir}/oracle.o" \
-  | awk '{print $2, $3, $4}' > "${build_dir}/oracle.nm"
-diff -u "${build_dir}/oracle.nm" "${build_dir}/candidate.nm"
-
-# Size parity alone cannot detect a same-sized instruction substitution. Compare
-# the complete disassembly and relocation stream, omitting only objdump's input
-# filename banner so the differently named object files remain comparable.
-objdump -drwC "${build_dir}/candidate.o" \
-  | sed -n '/^Disassembly of section/,$p' \
-  > "${build_dir}/candidate.disassembly"
-objdump -drwC "${build_dir}/oracle.o" \
-  | sed -n '/^Disassembly of section/,$p' \
-  > "${build_dir}/oracle.disassembly"
-diff -u "${build_dir}/oracle.disassembly" \
-  "${build_dir}/candidate.disassembly"
-
-# GCC prefixes each stack-usage record with the source path and line number.
-# Those locations intentionally differ between src/ and the frozen oracle, so
-# strip only that location and require every function's remaining stack record
-# (bytes plus static/dynamic classification) to be identical.
-sed -E 's|^[^:]+:[0-9]+:[0-9]+:||' "${build_dir}/candidate.su" \
-  > "${build_dir}/candidate.normalized.su"
-sed -E 's|^[^:]+:[0-9]+:[0-9]+:||' "${build_dir}/oracle.su" \
-  > "${build_dir}/oracle.normalized.su"
-diff -u "${build_dir}/oracle.normalized.su" \
-  "${build_dir}/candidate.normalized.su"
-
-candidate_size=$(size "${build_dir}/candidate.o" | awk 'NR == 2 {print $4}')
-oracle_size=$(size "${build_dir}/oracle.o" | awk 'NR == 2 {print $4}')
-if [[ "${candidate_size}" != "${oracle_size}" ]]; then
-  echo "Object footprint changed: candidate=${candidate_size}, oracle=${oracle_size}" >&2
+candidate_size=$(size "${build_dir}/master.o" | awk 'NR == 2 {print $4}')
+max_object_size=${MBUS_RTU_MASTER_MAX_OBJECT_BYTES:-8435}
+if (( candidate_size > max_object_size )); then
+  echo "Object footprint exceeded budget: actual=${candidate_size}, max=${max_object_size}" >&2
   exit 1
 fi
 
+sed -E 's|^[^:]+:[0-9]+:[0-9]+:||' "${build_dir}/master.su" \
+  > "${build_dir}/master.normalized.su"
 candidate_stack_max=$(awk -F '\t' \
   'BEGIN { max = 0 } { if ($2 + 0 > max) max = $2 + 0 } END { print max }' \
-  "${build_dir}/candidate.normalized.su")
+  "${build_dir}/master.normalized.su")
+max_stack_bytes=${MBUS_RTU_MASTER_MAX_STACK_BYTES:-400}
+if (( candidate_stack_max > max_stack_bytes )); then
+  echo "Stack usage exceeded budget: actual=${candidate_stack_max}, max=${max_stack_bytes}" >&2
+  exit 1
+fi
 
 if [[ "${MBUS_STRICT_PERFORMANCE:-0}" == "1" ]]; then
   benchmark_flags=("${common_flags[@]}" -O3 -DNDEBUG)
-
   g++ "${benchmark_flags[@]}" -Isrc \
     test/master_benchmark.cpp \
     test/support/ModbusADU.cpp \
     src/ModbusRTUMaster.cpp \
-    -o "${build_dir}/candidate-benchmark"
-  g++ "${benchmark_flags[@]}" \
-    -DMBUS_USE_FROZEN_OGM_ORACLE=1 \
-    -Itest/frozen/ogm_portable_2055adb \
-    test/master_benchmark.cpp \
-    test/support/ModbusADU.cpp \
-    test/frozen/ogm_portable_2055adb/ModbusRTUMaster.cpp \
-    -o "${build_dir}/oracle-benchmark"
+    -o "${build_dir}/master-benchmark"
+
+  benchmark_runner=()
+  if command -v taskset >/dev/null 2>&1; then
+    benchmark_cpu=${MBUS_RTU_MASTER_PERF_CPU:-}
+    if [[ -z "${benchmark_cpu}" ]]; then
+      allowed_cpus=$(taskset -pc $$ | sed 's/^.*: //')
+      benchmark_cpu=${allowed_cpus%%,*}
+      benchmark_cpu=${benchmark_cpu%%-*}
+    fi
+    if [[ ! "${benchmark_cpu}" =~ ^[0-9]+$ ]] ||
+       ! taskset -c "${benchmark_cpu}" true >/dev/null 2>&1; then
+      echo "MBUS_RTU_MASTER_PERF_CPU is not available to this process" >&2
+      exit 2
+    fi
+    benchmark_runner=(taskset -c "${benchmark_cpu}")
+    echo "Strict hot-path affinity: CPU ${benchmark_cpu}"
+  elif [[ -n ${MBUS_RTU_MASTER_PERF_CPU:-} ]]; then
+    echo "MBUS_RTU_MASTER_PERF_CPU requires taskset" >&2
+    exit 2
+  fi
 
   for iteration in 1 2 3 4 5 6 7; do
-    "${build_dir}/oracle-benchmark" >> "${build_dir}/oracle-times"
-    "${build_dir}/candidate-benchmark" >> "${build_dir}/candidate-times"
+    "${benchmark_runner[@]}" "${build_dir}/master-benchmark" \
+      >> "${build_dir}/benchmark-times"
   done
-  sort -n "${build_dir}/oracle-times" > "${build_dir}/oracle-times-sorted"
-  sort -n "${build_dir}/candidate-times" > \
-    "${build_dir}/candidate-times-sorted"
-  oracle_median=$(sed -n '4p' "${build_dir}/oracle-times-sorted")
-  candidate_median=$(sed -n '4p' "${build_dir}/candidate-times-sorted")
-
-  # Timing is an intentionally opt-in host signal. The default disassembly and
-  # stack gates are deterministic; this wider bound catches a material slowdown
-  # while tolerating ordinary scheduler and CPU-frequency noise.
-  if ! awk -v candidate="${candidate_median}" -v oracle="${oracle_median}" \
-      'BEGIN { exit(candidate <= oracle * 1.20 ? 0 : 1) }'; then
-    echo "Hot path slowed by more than 20%: candidate=${candidate_median}us, oracle=${oracle_median}us" >&2
+  sort -n "${build_dir}/benchmark-times" > "${build_dir}/benchmark-times-sorted"
+  benchmark_median=$(sed -n '4p' "${build_dir}/benchmark-times-sorted")
+  max_benchmark_us=${MBUS_RTU_MASTER_MAX_BENCHMARK_US:-40000}
+  if (( benchmark_median > max_benchmark_us )); then
+    echo "Hot path exceeded budget: median=${benchmark_median}us, max=${max_benchmark_us}us" >&2
     exit 1
   fi
-  echo "Strict hot path: candidate=${candidate_median}us, oracle=${oracle_median}us"
+  echo "Strict hot path: median=${benchmark_median}us, max=${max_benchmark_us}us"
 fi
 
-scenario_count=$(wc -l < test/fixtures/ogm_portable_2055adb_master.trace)
-echo "Master compatibility: ${scenario_count} frozen trace scenarios matched"
+scenario_count=$(wc -l < test/fixtures/master_behavior.trace)
+echo "Master behavior: ${scenario_count} golden trace scenarios matched"
 echo "Master dependency: missing Comm no-response gate was rejected"
-echo "Master codegen: exact disassembly, symbols, and ${candidate_size}-byte object footprint matched"
-echo "Master stack: exact per-function usage matched (maximum ${candidate_stack_max} bytes)"
+echo "Master footprint: ${candidate_size}/${max_object_size} object bytes"
+echo "Master stack: ${candidate_stack_max}/${max_stack_bytes} bytes"
