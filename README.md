@@ -1,559 +1,158 @@
 # ModbusRTUMaster
 
-This is the OpenGameMaster-maintained, provenance-preserving fork of
-[`CMB27/ModbusRTUMaster`](https://github.com/CMB27/ModbusRTUMaster). It keeps
-the familiar allocation-free Arduino API while adding the behavior and
-contracts needed for deterministic, observable multidrop game-control
-networks.
+`ModbusRTUMaster` is an Arduino Modbus RTU master/client library. It builds
+requests, validates responses, and exposes a small array-based API for coils
+and registers. [`ModbusRTUComm`](https://github.com/Cybergrany/ModbusRTUComm)
+handles serial framing, RTU timing, receive recovery, and RS485 direction.
 
-> [!IMPORTANT]
-> The exact Master release at `2.0.0-ogm.1`, with its pinned Comm and ADU
-> tuple, completed OGM consumer and physical GIGA/RS485 gates with unchanged
-> deployed slave firmware on 2026-08-26. Consume that immutable tag or its full
-> commit, not a moving branch.
+This README describes the public API in the current source tree.
+
+## When to use it
+
+Use this library to:
+
+- poll sensors, meters, controllers, or remote I/O over UART or RS485;
+- write one or many coils or holding registers;
+- send standard unit-zero broadcast writes without waiting for a response;
+- send a targeted, no-response write to one compatible device with function
+  code `0x45`; or
+- protect shared application buffers while keeping locks away from serial I/O.
 
 ## What this fork adds
 
-- FC `0x45` targeted broadcast with explicit fire-and-forget ordering;
-- reliable failed-transmit and stable caller-visible error propagation;
-- optional caller-buffer locking that never spans serial I/O;
-- one-shot pre/post transaction scheduling gaps;
-- neutral forwarding of detailed transport metrics and stack diagnostics; and
-- immutable Master -> Comm -> ADU dependency and capability contracts.
+- **Targeted broadcast helpers.** FC `0x45` wraps FC 5, 6, 15, or 16 for one
+  selected unit. This is useful when a multidrop controller needs a
+  fire-and-forget update without making every unit apply it. See the
+  [public header](src/ModbusRTUMaster.h) and
+  [targeted-broadcast contract](src/README.md#fc-0x45-targeted-broadcast).
+- **Clear transport failures.** Failed writes, timeouts, CRC errors, malformed
+  responses, and Modbus exceptions remain distinct at the caller boundary.
+  See [`ModbusRTUMasterError`](src/ModbusRTUMaster.h).
+- **Safe no-response ordering.** Broadcast calls retain the required quiet
+  period before another request can start. One-shot pre- and post-transmit
+  gaps are also available when the transport supports them. See
+  [transport capabilities](src/README.md#transport-capabilities).
+- **Optional caller-buffer locking.** Reads and multi-value writes can use a
+  caller-selected lock type. The lock protects only the memory copy and is
+  released before serial I/O. See
+  [caller-buffer locking](src/README.md#caller-buffer-locking) and
+  [`ModbusRTUMasterLock.h`](src/ModbusRTUMasterLock.h).
+- **Optional transport diagnostics.** Detailed timing, recovery, and RX-task
+  data can be forwarded without adding a second diagnostics model. See the
+  [capability table](src/README.md#transport-capabilities).
+- **Deterministic compatibility tests.** Request bytes, CRCs, response parsing,
+  error values, call ordering, code size, and stack usage are checked against
+  a frozen reference. See [the test guide](test/README.md).
 
-The maintained `main` descends from CMB27
-`59fe589d2cf389b17b7eeb127254a28de144d6e3`, the source imported by OGM,
-so Git history shows each improvement on top of the original implementation.
-Current CMB27 development remains available through the `upstream` remote.
-Reconciling it is a separate behavior migration, not branch housekeeping.
+## Quick start
 
-Exact anchors, matching source hashes and replay rules are recorded in
-[OGM_FORK_PROVENANCE.md](OGM_FORK_PROVENANCE.md) and
-[`ogm-fork-lock.json`](ogm-fork-lock.json).
-
-## Release status
-
-The Master protocol replay now includes OGM's FC `0x45` targeted-broadcast
-helpers, transmit-admission errors, caller-buffer synchronization, error names
-and neutral Comm capability forwarding. It deliberately does not own UART
-timing, drain/DE/RE, receive recovery, tasks or diagnostics policy; those live
-in the separately reviewed ModbusRTUComm fork.
-
-Both package manifests identify this candidate as `2.0.0-ogm.1`. The OGM
-prerelease suffix is intentional: upstream already owns the distinct `2.0.0`
-identity, and OGM-maintained artifacts must not be mistaken for that tag.
-
-Check `ogm_functional_replay` in `ogm-fork-lock.json` before treating a commit
-as a migration candidate. A tag is not considered a validated release
-until the validation gates in the provenance document are satisfied.
-
-The native gate compares 45 deterministic scenarios against the exact
-`OGM_Portable` `2055adb` source oracle. Request bytes and CRCs, parsed values,
-all error paths and lock/Comm ordering match. Normalized optimized disassembly,
-per-function stack usage, symbol sizes and object footprint are also exact. See
-[test/README.md](test/README.md) for the commands and the boundary between
-deterministic evidence and the completed, tuple-specific hardware acceptance.
-
-## Installing a validated release
-
-PlatformIO consumers should pin an immutable OGM tag or full commit,
-never a moving branch:
-
-```ini
-lib_deps =
-  https://github.com/Cybergrany/ModbusRTUMaster.git#2.0.0-ogm.1
-```
-
-The `library.json` at that pinned revision also pins the corresponding
-`Cybergrany/ModbusRTUComm` commit and the reviewed CMB27 `ModbusADU` commit.
-Do not override those dependencies independently unless the complete tuple has
-been revalidated. The seed commit is suitable for provenance inspection and
-compile experiments only; it is not the immutable OGM dependency pin.
-
-Arduino Library Manager metadata cannot pin dependencies to Git commits, so
-`library.properties` intentionally declares no mutable named dependencies.
-Arduino IDE/CLI users must install the exact ModbusADU and ModbusRTUComm
-revisions from `ogm-fork-lock.json` themselves. A mismatched Comm then fails at
-compile time unless it advertises the required no-response/next-TX gate.
-
-For local extraction work, use a path dependency so the consumer and library
-changes are tested together:
-
-```ini
-lib_deps =
-  symlink:///absolute/path/to/ModbusRTUMaster
-```
-
-Before publishing a release, replace the local path with the immutable remote
-revision and rebuild the exact OGM dependency tree from a clean dependency
-cache.
-
-## Usage example
-
-This maintained API returns `ModbusRTUMasterError`, rather than a
-`bool`. It also expects the application to configure the serial port; the
-library's `begin()` computes RTU timing and initializes direction pins but does
-not call `HardwareSerial::begin()` on this seed.
+Configure the serial port first. `ModbusRTUMaster::begin()` configures Modbus
+timing and direction pins; it does not call `Serial.begin()`.
 
 ```cpp
 #include <Arduino.h>
 #include <ModbusRTUMaster.h>
 
-namespace {
 constexpr unsigned long kBaud = 115200UL;
+constexpr uint8_t kUnitId = 7;
 constexpr int8_t kDriverEnablePin = 2;
-ModbusRTUMaster modbus(Serial1, kDriverEnablePin);
-}
+
+ModbusRTUMaster master(Serial1, kDriverEnablePin);
+uint16_t inputValues[4] = {};
 
 void setup() {
-  Serial1.begin(kBaud, SERIAL_8N1); // configure the UART first
-  modbus.begin(kBaud, SERIAL_8N1);  // derive RTU gaps and initialize DE/RE
-  modbus.setTimeout(500UL);
+  Serial1.begin(kBaud, SERIAL_8N1);
+  master.begin(kBaud, SERIAL_8N1);
+  master.setTimeout(250UL);
 }
 
 void loop() {
-  uint16_t holding[4] = {};
   const ModbusRTUMasterError result =
-      modbus.readHoldingRegisters(7, 0, holding, 4);
+      master.readInputRegisters(kUnitId, 0, inputValues, 4);
 
   if (result == MODBUS_RTU_MASTER_EXCEPTION_RESPONSE) {
-    const uint8_t exceptionCode = modbus.getExceptionResponse();
+    const uint8_t exceptionCode = master.getExceptionResponse();
     (void)exceptionCode;
+  } else if (result != MODBUS_RTU_MASTER_SUCCESS) {
+    const char* message = modbusRtuMasterErrorToString(result);
+    (void)message;
   }
+
+  delay(100);
 }
 ```
 
-Targeted broadcast is exposed as explicit FC `0x45` helpers. It is
-fire-and-forget: success means Comm transmitted/admitted the frame, not that a
-slave acknowledged it.
+The serial object, baud rate, format, and transceiver pins must match the
+connected bus. An RE pin may be passed as the third constructor argument when
+the transceiver exposes it separately.
+
+## Supported operations
+
+| Function | Method |
+| --- | --- |
+| FC 1: Read Coils | `readCoils()` |
+| FC 2: Read Discrete Inputs | `readDiscreteInputs()` |
+| FC 3: Read Holding Registers | `readHoldingRegisters()` |
+| FC 4: Read Input Registers | `readInputRegisters()` |
+| FC 5: Write Single Coil | `writeSingleCoil()` |
+| FC 6: Write Single Holding Register | `writeSingleHoldingRegister()` |
+| FC 15: Write Multiple Coils | `writeMultipleCoils()` |
+| FC 16: Write Multiple Holding Registers | `writeMultipleHoldingRegisters()` |
+
+Standard write methods accept unit ID `0` for a Modbus broadcast. Broadcasts
+do not return a device acknowledgement.
+
+## Targeted broadcast
+
+FC `0x45` is an extension and must be supported by the receiving device. The
+outer frame uses unit ID zero, while the target unit and standard write
+function are encoded in the data:
 
 ```cpp
-const uint16_t page[] = {0x1122, 0x3344};
-const ModbusRTUMasterError sent =
-    modbus.fc69WriteMultipleHoldingRegisters(7, 0x1234, page, 2);
+const uint16_t setpoints[] = {1200, 1250};
+const ModbusRTUMasterError result =
+    master.fc69WriteMultipleHoldingRegisters(
+        7,       // target unit
+        100,     // first holding register
+        setpoints,
+        2);
 ```
 
-Applications that pass a caller-buffer lock select a platform type at compile
-time. This keeps platform and RTOS headers out of the library while retaining
-direct, allocation-free `lock()`/`unlock()` calls:
+A success result means the frame was accepted by the transport. It does not
+prove that the target received or applied the write. Use a later unicast read
+when confirmation is required.
 
-```ini
-build_flags =
-  -DMBUS_RTU_MASTER_LOCK_HEADER=\"platform/PlatformMutex.h\"
-  -DMBUS_RTU_MASTER_LOCK_TYPE=PlatformMutex
+## Shared buffers and extra gaps
+
+The default lock is a no-op. Applications that share buffers between tasks can
+select a lock type at compile time and pass its pointer to read and multi-write
+calls. The selection must be the same in every translation unit. Full setup
+and ordering examples are in [the API guide](src/README.md).
+
+`setPreTxGapUsOnce()` and `setPostTxGapUsOnce()` apply an extra delay to the
+next transaction only. They are useful for devices that need more recovery
+time than the base RTU interval without slowing every request.
+
+## Examples and reference
+
+- [Basic master example](examples/ModbusRTUMasterExample/ModbusRTUMasterExample.ino)
+- [Interactive bus probe](examples/ModbusRTUMasterProbe/ModbusRTUMasterProbe.ino)
+- [Detailed API and ownership guide](src/README.md)
+- [Public header](src/ModbusRTUMaster.h)
+- [Transport library](https://github.com/Cybergrany/ModbusRTUComm)
+- [Validation guide](test/README.md)
+
+## Testing
+
+Run the native behavior and footprint checks from the repository root:
+
+```sh
+test/run_native_tests.sh
 ```
 
-The lock covers only the caller-buffer copy. It is released before serial I/O;
-it does not serialize complete Modbus transactions. See [src/README.md](src/README.md)
-for the complete public contract and usage examples.
+Native tests cannot prove electrical RS485 timing or target-specific UART
+behavior. Validate those on each supported board and transceiver design.
 
-## Behavior contract
+## License
 
-Moving source ownership into this repository must not change:
-
-- serialized request bytes, CRCs, response parsing or exception values;
-- request order, including FC 0x45 fire-and-forget/no-response ordering;
-- UART drain, driver-enable and receive-enable transitions or settling delays;
-- timeout boundaries, retry behavior, lock spans or caller-visible errors;
-- stack/RAM/flash footprint and hot-path performance beyond the accepted gates;
-- compatibility with the deployed original OGM slave firmware.
-
-Native fixtures and byte comparisons can strongly constrain those properties,
-but they cannot prove UART interrupt latency, RS485 electrical timing, scheduler
-behavior or bus contention. Those limits still apply generally; the immutable
-`2.0.0-ogm.1` tuple itself subsequently passed the scoped master-only and
-combined master/bridge physical checkpoints recorded in
-[`OGM_FORK_PROVENANCE.md`](OGM_FORK_PROVENANCE.md).
-
-## Historical upstream documentation
-
-The reference below is retained from the CMB27 branch point. Return-value
-descriptions have been corrected for the maintained API, but the pinned
-source and the example above remain authoritative if historical prose and code
-ever disagree.
-
-> [!WARNING]  
-> ModbusRTUMaster is currently undergoing a redesign.
-> Things may not work, or may not be corretly documented.
-> For a functional version of this library, please use the latest tagged release.
-
-Modbus is an industrial communication protocol. The RTU variant communicates over serial lines such as UART, RS-232, or RS-485. The full details of the Modbus protocol can be found at [modbus.org](https://modbus.org). A good summary can also be found on [Wikipedia](https://en.wikipedia.org/wiki/Modbus).  
-
-This is an Arduino library that implements the master/client logic of the Modbus RTU protocol. This library implements function codes 1 (Read Coils), 2 (Read Discrete Inputs), 3 (Read Holding Registers), 4 (Read Input Registers), 5 (Write Single Coil), 6 (Write Single Holding Register), 15 (Write Multiple Coils), and 16 (Write Multiple Holding Registers).  
-
-This library will work with HardwareSerial, SoftwareSerial, or Serial_ (USB Serial on ATmega32u4 based boards). A driver enable pin can be set up, enabling an RS-485 transceiver to be used. Only `SERIAL_8N1`, `SERIAL_8E1`, `SERIAL_8O1`, `SERIAL_8N2`, `SERIAL_8E2`, and `SERIAL_8O2` are supported when using HardwareSerial; attempting to use any other configuration will cause the library to default to `SERIAL_8N1`.  
-
-## Examples
-- [ModbusRTUMasterExample](examples/ModbusRTUMasterExample/ModbusRTUMasterExample.ino)
-- [ModbusRTUMasterProbe](examples/ModbusRTUMasterProbe/ModbusRTUMasterProbe.ino)
-
-These local sketches are maintained against the public API and are part
-of the embedded compile gate. Do not substitute examples from a moving upstream
-branch: its API contract differs from this line.
-
-## Methods
-
-### ModbusRTUMaster()
-
-#### Description
-Creates a ModbusRTUMaster object and sets the serial port to use for data transmission.
-Optionally sets a driver enable pin. This pin will go `HIGH` when the library is transmitting. This is primarily intended for use with an RS-485 transceiver, but it can also be a handy diagnostic when connected to an LED.
-
-#### Syntax
-``` C++
-ModbusRTUMaster(serial)
-ModbusRTUMaster(serial, dePin)
-```
-
-#### Parameters
-- `serial`: the serial port object to use for Modbus communication.
-- `dePin`: the driver enable pin. This pin is set HIGH when transmitting. If this parameter is set to `NO_DE_PIN`, this feature will be disabled. Default value is `NO_DE_PIN`. Allowed data types `uint8_t` or `byte`.
-
-#### Example
-``` C++
-# include <ModbusRTUMaster.h>
-
-const uint8_t dePin = 13;
-
-ModbusRTUMaster modbus(Serial, dePin);
-```
-
----
-
-
-### setTimeout()
-
-#### Description
-Sets the maximum timeout in milliseconds to wait for the start of a response after sending a request. The maintained constructor sets this to 500 milliseconds by default.
-
-#### Syntax
-``` C++
-modbus.setTimeout(time)
-```
-
-#### Parameters
-- `time`: the timeout duration in milliseconds. Allowed data types: `unsigned long`.
-
----
-
-
-### begin()
-
-#### Description
-Sets the data rate in bits per second (baud) for serial transmission.
-Optionally it also sets the data configuration. Note, there must be 8 data bits for Modbus RTU communication. The default configuration is 8 data bits, no parity, and one stop bit.
-
-#### Syntax
-``` C++
-modbus.begin(baud)
-modbus.begin(baud, config)
-modbus.begin(baud, config, rxPin, txPin, invert) // ESP32 only
-```
-
-#### Parameters
-- `baud`: the baud rate to use for Modbus communication. Common values are: `1200`, `2400`, `4800`, `9600`, `19200`, `38400`, `57600`, and `115200`. Allowed data types: `unsigned long`.
-- `config`: the serial port configuration to use. Valid values are:  
-`SERIAL_8N1`: no parity (default)  
-`SERIAL_8N2`  
-`SERIAL_8E1`: even parity  
-`SERIAL_8E2`  
-`SERIAL_8O1`: odd parity  
-`SERIAL_8O2`
-- `rxPin`: the pin on which to receive serial data. Allowed data types: `int8_t`, `char`.
-- `txPin`: the pin on which to transmit serial data. Allowed data types: `int8_t`, `char`.
-- `invert`: will invert RX/TX polarity. Allowed data types: `bool`.
-
-_If using a SoftwareSerial port a configuration of `SERIAL_8N1` will be used regardless of what is entered._  
-_The `rxPin`, `txPin`, and `invert` parameters are only available on ESP32 boards._
-
----
-
-
-### readCoils()
-
-#### Description
-reads coil values from a slave/server device.
-
-#### Syntax
-``` C++
-modbus.readCoils(slaveId, startAddress, buffer, quantity)
-```
-
-#### Parameters
-- `slaveId`: the id number of the device to send this request to. Allowed data types: `uint8_t` or `byte`.
-- `startAddress`: the address of the first coil to read. Allowed data types: `uint16_t`.
-- `buffer`: an array in which to place the read coil values. Allowed data types: array of `bool`.
-- `quantity`: the number of coil values to read. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
-
-#### Returns
-A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means a valid response was received. Other values identify validation, transport, response, or exception errors.
-
-#### Example
-``` C++
-bool coils[8];
-modbus.readCoils(1, 0, coils, 8);
-```
-
----
-
-
-### readDiscreteInputs()
-
-#### Description
-reads discrete input values from a slave/server device.
-
-#### Syntax
-``` C++
-modbus.readDiscreteInputs(slaveId, startAddress, buffer, quantity)
-```
-
-#### Parameters
-- `slaveId`: the id number of the device to send this request to. Allowed data types: `uint8_t` or `byte`.
-- `startAddress`: the address of the first discrete input to read. Allowed data types: `uint16_t`.
-- `buffer`: an array in which to place the read discrete input values. Allowed data types: array of `bool`.
-- `quantity`: the number of discrete input values to read. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
-
-#### Returns
-A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means a valid response was received. Other values identify validation, transport, response, or exception errors.
-
-#### Example
-``` C++
-bool discreteInputs[8];
-modbus.readDiscreteInputs(1, 0, discreteInputs, 8);
-```
-
----
-
-
-### readHoldingRegisters()
-
-#### Description
-reads holding register values from a slave/server device.
-
-#### Syntax
-``` C++
-modbus.readHoldingRegisters(slaveId, startAddress, buffer, quantity)
-```
-
-#### Parameters
-- `slaveId`: the id number of the device to send this request to. Allowed data types: `uint8_t` or `byte`.
-- `startAddress`: the address of the first holding register to read. Allowed data types: `uint16_t`.
-- `buffer`: an array in which to place the read holding register values. Allowed data types: array of `uint16_t`.
-- `quantity`: the number of holding register values to read. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
-
-#### Returns
-A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means a valid response was received. Other values identify validation, transport, response, or exception errors.
-
-#### Example
-``` C++
-uint16_t holdingRegisters[8];
-modbus.readHoldingRegisters(1, 0, holdingRegisters, 8);
-```
-
----
-
-
-### readInputRegisters()
-
-#### Description
-reads input register values from a slave/server device.
-
-#### Syntax
-``` C++
-modbus.readInputRegisters(slaveId, startAddress, buffer, quantity)
-```
-
-#### Parameters
-- `slaveId`: the id number of the device to send this request to. Allowed data types: `uint8_t` or `byte`.
-- `startAddress`: the address of the first input register to read. Allowed data types: `uint16_t`.
-- `buffer`: an array in which to place the read input register values. Allowed data types: array of `uint16_t`.
-- `quantity`: the number of input register values to read. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
-
-#### Returns
-A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means a valid response was received. Other values identify validation, transport, response, or exception errors.
-
-#### Example
-``` C++
-uint16_t inputRegisters[8];
-modbus.readInputRegisters(1, 0, inputRegisters, 8);
-```
-
----
-
-
-### writeSingleCoil()
-
-#### Description
-writes a single coil value to a slave/server device.
-
-#### Syntax
-``` C++
-modbus.writeSingleCoil(slaveId, address, value)
-```
-
-#### Parameters
-- `slaveId`: the id number of the device to send this request to. Allowed data types: `uint8_t` or `byte`.
-- `address`: the address of the coil to write to. Allowed data types: `uint16_t`.
-- `value`: the value to write to the coil. Allowed data types: `bool`.
-
-#### Returns
-A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means the request was acknowledged with a valid response. Other values identify validation, transport, response, or exception errors.
-
----
-
-
-### writeSingleHoldingRegister()
-
-#### Description
-writes a single holding register value to a slave/server device.
-
-#### Syntax
-``` C++
-modbus.writeSingleHoldingRegister(slaveId, address, value)
-```
-
-#### Parameters
-- `slaveId`: the id number of the device to send this request to. Allowed data types: `uint8_t` or `byte`.
-- `address`: the address of the holding register to write to. Allowed data types: `uint16_t`.
-- `value`: the value to write to the holding register. Allowed data types: `uint16_t`.
-
-#### Returns
-A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means the request was acknowledged with a valid response. Other values identify validation, transport, response, or exception errors.
-
----
-
-
-### writeMultipleCoils()
-
-#### Description
-writes multiple coil values to a slave/server device.
-
-#### Syntax
-``` C++
-modbus.writeMultipleCoils(slaveId, startingAddress, buffer, quantity)
-```
-
-#### Parameters
-- `slaveId`: the id number of the device to send this request to. Allowed data types: `uint8_t` or `byte`.
-- `startAddress`: the address of the first coil to write to. Allowed data types: `uint16_t`.
-- `buffer`: an array of coil values. Allowed data types: array of `bool`.
-- `quantity`: the number of coil values to write. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
-
-#### Returns
-A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means the request was acknowledged with a valid response. Other values identify validation, transport, response, or exception errors.
-
-#### Example
-``` C++
-bool coils[2] = {true, false};
-modbus.writeMultipleCoils(1, 0, coils, 2);
-```
-
----
-
-
-### writeMultipleHoldingRegisters()
-
-#### Description
-writes multiple holding register values to a slave/server device.
-
-#### Syntax
-``` C++
-modbus.writeMultipleHoldingRegisters(slaveId, startingAddress, buffer, quantity)
-```
-
-#### Parameters
-- `slaveId`: the id number of the device to send this request to. Allowed data types: `uint8_t` or `byte`.
-- `startAddress`: the address of the first holding register to write to. Allowed data types: `uint16_t`.
-- `buffer`: an array of holding register values. Allowed data types: array of `uint16_t`.
-- `quantity`: the number of holding register values to write. This value must not be larger than the size of the array. Allowed data types: `uint16_t`.
-
-#### Returns
-A `ModbusRTUMasterError`; `MODBUS_RTU_MASTER_SUCCESS` means the request was acknowledged with a valid response. Other values identify validation, transport, response, or exception errors.
-
-#### Example
-``` C++
-uint16_t holdingRegisters[2] = {42, 328};
-modbus.writeMultipleHoldingRegisters(1, 0, holdingRegisters, 2);
-```
-
----
-
-
-### getTimeoutFlag()
-
-#### Description
-Checks whether a timeout has occured since the last time the flag was cleared.
-This flag is set whenever a timeout occurs and cleared when the `clearTimeoutFlag()` function is called.
-
-#### Syntax
-``` C++
-modbus.getTimeoutFlag()
-```
-
-#### Parameters
-None
-
-#### Returns
-The current value of the flag. Data type: `bool`.
-
----
-
-
-### clearTimeoutFlag()
-
-#### Description
-Clears the timeout flag.
-
-#### Syntax
-``` C++
-modbus.clearTimeoutFlag()
-```
-
-#### Parameters
-None
-
----
-
-
-### getExceptionResponse()
-
-#### Description
-Checks the last exception response that has occured since the `clearExceptionResponse()` function was called.
-
-When a valid Modbus request is sent, and the recipient slave/server device cannot process it, it responds with an exception code.
-This response is called an exception resonse, and it can be helpful in diagnosing issues.
-
-#### Syntax
-``` C++
-modbus.getExceptionResponse()
-```
-
-#### Parameters
-None
-
-#### Returns
-Exception code. Data type: `uint8_t`.
-
-- 0: none
-- 1: illegal function
-- 2: illegal data address
-- 3: illegal data value
-- 4: server device failure
-
-_Details on exeption responses can be found in the [MODBUS Application Protocol Specification](https://modbus.org/docs/Modbus_Application_Protocol_V1_1b3.pdf). More exeption responses exist than are listed here, but these are the most common._
-
----
-
-
-### clearExceptionResponse()
-
-#### Description
-clears the exeption response variable.
-
-#### Syntax
-``` C++
-modbus.clearExceptionResponse()
-```
-
-#### Parameters
-None
+MIT. See [LICENSE](LICENSE).
