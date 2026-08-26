@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "repository": "ModbusRTUMaster",
+  "package_version": "2.0.0-ogm.1",
   "compatibility_branch": "ogm/compat",
   "upstream": {
     "url": "https://github.com/CMB27/ModbusRTUMaster.git",
@@ -22,8 +23,88 @@
     },
     "ModbusRTUComm": {
       "url": "https://github.com/Cybergrany/ModbusRTUComm.git",
-      "commit": "d6eca90923aea0a8c0d10716e190f462886205b2"
+      "commit": "10477dd4af395331c86692f03f9d0c5c709fa684",
+      "required_capabilities": {
+        "MBUS_RTU_COMM_HAS_NO_RESPONSE_GATE": 1
+      }
     }
   },
-  "ogm_functional_replay": "not_started"
+  "arduino_dependency_policy": "manual immutable revisions; no mutable library.properties depends",
+  "ogm_functional_replay": {
+    "status": "hardware_accepted_release_tagged",
+    "source_anchor": {
+      "repository": "OGM_Portable",
+      "commit": "2055adb449c1e767217f09f99efda32e52a0306d",
+      "files": {
+        "ModbusRTUMaster.h": "868db60a38c8664fd2008d37de1af57f71883cdeff1ec8cb692b462cebc1bc0e",
+        "ModbusRTUMaster.cpp": "8e960e61c673f5e4d78928af06e2c07dd99e95761ecf05f3d55690477970c586",
+        "ModbusRTUMasterLock.h": "9c3769990013e639819d820a83ce902fbfe65605321d0a950a393ec45bf69d38"
+      }
+    },
+    "implementation_commits": [
+      "b6569fcfcaf7e2cb4badeff2d9a39969b750b45b",
+      "92625a1de9faae6c7098714a16d13442e3b23370",
+      "d45ca427d6ec002c2c99fdb5106cc27b3d97fc03"
+    ],
+    "candidate_files": {
+      "src/ModbusRTUMaster.h": "5487c6c253d27fa522ea15283906e9315067d99c47183b1cc5b38eb3d8023f81",
+      "src/ModbusRTUMaster.cpp": "d601cf073463eeaff308737724acbe775d6c34aec1690d7076ea974b2715032b",
+      "src/ModbusRTUMasterLock.h": "bd1ba1ccc44db63ec79dc56a4684e05845cf98532abbb196cde9d43e06c4501d"
+    },
+    "native_validation": {
+      "frozen_trace_scenarios": 45,
+      "dependency_pin_contract": "passed",
+      "package_identity_contract": "passed",
+      "platformio_package_pack": "passed",
+      "probe_serial_configuration_contract": "passed",
+      "comm_no_response_gate_negative_compile": "passed",
+      "optimized_disassembly_parity": "exact",
+      "optimized_symbol_parity": "exact",
+      "stack_usage_parity": "exact",
+      "max_host_fixture_stack_bytes": 400,
+      "optimized_object_footprint_bytes": 8435,
+      "strict_paired_hot_path": "passed",
+      "functional_comm_pin": "10477dd4af395331c86692f03f9d0c5c709fa684",
+      "master_comm_native_link": "passed",
+      "arduino_giga_mbed_compile": {
+        "status": "passed",
+        "flash_bytes": 102672,
+        "ram_bytes": 51216
+      },
+      "arduino_nano_avr_compile": {
+        "status": "passed_compile_only_ram_exceeds_target",
+        "flash_bytes": 12360,
+        "ram_bytes": 3205
+      },
+      "arduino_examples_compile": {
+        "giga_mbed_general": {
+          "status": "passed",
+          "flash_bytes": 118968,
+          "ram_bytes": 51728
+        },
+        "nano_avr_general": {
+          "status": "passed_compile_only_ram_exceeds_target",
+          "flash_bytes": 15352,
+          "ram_bytes": 3781
+        },
+        "nano_avr_probe": {
+          "status": "passed_compile_only_ram_exceeds_target",
+          "flash_bytes": 18282,
+          "ram_bytes": 3735
+        }
+      }
+    },
+    "remaining_gates": [],
+    "release": {
+      "tag": "2.0.0-ogm.1",
+      "commit": "61491e27593f15ad9a10e0fcf74595f623a63c1b",
+      "comm_commit": "10477dd4af395331c86692f03f9d0c5c709fa684",
+      "master_firmware_sha256": "cec149eeb0e1751671724cf1d765cbe06e4a55704d1f4662402271f516315eb0",
+      "bridge_console_firmware_sha256": "be0c32c3632c930ae9d8df7bbdf4d63f720e35e77dcf85880851d4239a440b81",
+      "master_log_sha256": "0f12caab08b50beb1bb5cba643945a7a1a46d62e6a498b3c43a66ce5c3cd9f6b",
+      "combined_log_sha256": "53aa85d81f25b6efb907daa1a577e8c7f57dab92f09091d629ea88bd5526cec1",
+      "accepted_date": "2026-08-26",
+      "deployed_slave_firmware": "unchanged"
+    }
+  }
 }

@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
   "name": "ModbusRTUMaster",
-  "version": "2.0.0",
+  "version": "2.0.0-ogm.1",
   "description": "Arduino Modbus RTU master/client implementation.",
   "keywords": [
     "arduino",
@@ -31,7 +31,7 @@
   ],
   "dependencies": {
     "ModbusADU": "https://github.com/CMB27/ModbusADU.git#7cb0e24f0abe86bc83e114325d75fe7a7d878562",
-    "ModbusRTUComm": "https://github.com/Cybergrany/ModbusRTUComm.git#d6eca90923aea0a8c0d10716e190f462886205b2"
+    "ModbusRTUComm": "https://github.com/Cybergrany/ModbusRTUComm.git#10477dd4af395331c86692f03f9d0c5c709fa684"
   },
   "export": {
     "exclude": [

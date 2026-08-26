@@ -19,6 +19,7 @@ no-behaviour-change migration gate.
 | `ogm/compat` branch point | `59fe589d2cf389b17b7eeb127254a28de144d6e3` |
 | First OGM import in `OpenGameMaster_pio` | `ef4d0ccb1cccd60781f3605d444a16dc7900661c` |
 | Later transfer into `OGM_Portable` | `a3551eab76877052df39a5e3ac875f71ce4e1109` |
+| Validated functional replay source | `2055adb449c1e767217f09f99efda32e52a0306d` |
 
 The two files imported by `ef4d0ccb` were compared with CMB27 at the branch
 point. Their SHA-256 values match exactly:
@@ -33,12 +34,88 @@ is [`ogm-fork-lock.json`](ogm-fork-lock.json).
 
 ## Current compatibility status
 
-The initial `ogm/compat` seed adds provenance and package metadata only. Its
-master source files remain identical to the historical CMB27 branch point, and
-`ogm_functional_replay` in `ogm-fork-lock.json` remains `not_started` until the
-first reviewed source replay lands. A successful seed compile demonstrates
-that the historical package can still be resolved; it does not demonstrate
-that current OGM consumers can switch to it without a behavior delta.
+The master-layer replay is implemented, natively differential-tested, and
+released at immutable tag `2.0.0-ogm.1`. That tag points to exact
+behavior-bearing commit `61491e27593f15ad9a10e0fcf74595f623a63c1b`.
+`library.json` and `ogm-fork-lock.json` pin ModbusRTUComm
+`10477dd4af395331c86692f03f9d0c5c709fa684`; the complete tuple passed clean
+consumer builds and scoped physical RS485 checkpoints with unchanged deployed
+slave firmware on 2026-08-26. Package manifests retain the unambiguous
+OGM-qualified identity and do not reuse upstream's materially different
+`2.0.0` release identity.
+
+The replay source is the exact OGM Portable hardware-validated dependency
+anchor `2055adb449c1e767217f09f99efda32e52a0306d`. No board definitions, game
+state, generated register layout or bridge topology entered this repository.
+
+### Functional replay ledger
+
+| Theme | Source provenance |
+| --- | --- |
+| FC `0x45` targeted broadcast and Comm-owned no-response gate | `OpenGameMaster_pio` `406a884c`, `ae476e17` |
+| Caller-buffer lock spans | `OpenGameMaster_pio` `346f6995`, `e59b26f5`; neutral selector from `OGM_Portable` `8697ed3` |
+| Stable error strings | `OpenGameMaster_pio` `a537188b` |
+| Failed-transmit error propagation | `OGM_Portable` `41ebf9fb` |
+| One-shot pre/post-gap forwarding | `OpenGameMaster_pio` `5918b7e8`; `OGM_Portable` `ba02774a` |
+| Metrics and stack snapshot forwarding | `OpenGameMaster_pio` `96591365`; `OGM_Portable` `571f29b2`, `75846947` |
+
+Implementation commit `b6569fcfcaf7e2cb4badeff2d9a39969b750b45b`
+contains the neutral replay. Commit
+`92625a1de9faae6c7098714a16d13442e3b23370` freezes the exact source oracle,
+ADU snapshot and 45-scenario trace gate. Commit
+`d45ca427d6ec002c2c99fdb5106cc27b3d97fc03` pins the final Comm tuple and
+makes the no-response ordering capability a fail-closed compile contract.
+
+Native validation currently establishes exact candidate/oracle traces for
+request bytes, CRCs, response/error mapping, FC `0x45`, standard broadcasts,
+locks and completion order. It also rejects Comm revisions that lack the
+explicit no-response/next-TX gate. Normalized optimized disassembly,
+per-function stack usage, symbols and the 8435-byte host object footprint are
+identical; the opt-in paired hot-path benchmark also passes. This supports
+running the paired consumer builds against the pinned Comm candidate. It does
+did not replace the master-only physical RS485 checkpoint; that checkpoint and
+the later combined master/bridge checkpoint subsequently passed for the exact
+release tuple.
+
+The pinned Master/Comm tuple also links as strict native C++11 and passes the
+standalone Arduino compile gate on GIGA/mbed (`102672` flash, `51216` RAM) and
+Nano/AVR (`12360` flash, `3205` RAM). The Nano result is compile-only because
+the complete compatibility transport intentionally exceeds its 2 KiB SRAM.
+Whole-firmware resource comparison remains a consumer gate; standalone numbers
+must not be compared with an OGM application image as if their link surfaces
+were equal.
+
+## Compatibility release evidence
+
+The immutable release tuple is:
+
+```text
+ModbusRTUMaster 61491e27593f15ad9a10e0fcf74595f623a63c1b
+  -> ModbusRTUComm 10477dd4af395331c86692f03f9d0c5c709fa684
+  -> ModbusADU     7cb0e24f0abe86bc83e114325d75fe7a7d878562
+```
+
+The exact clean consumer artifacts subsequently flashed by the user were
+`MASTER` SHA-256
+`cec149eeb0e1751671724cf1d765cbe06e4a55704d1f4662402271f516315eb0`
+and `bridge_console` SHA-256
+`be0c32c3632c930ae9d8df7bbdf4d63f720e35e77dcf85880851d4239a440b81`.
+The master-only log (`master-review.csv`, SHA-256
+`0f12caab08b50beb1bb5cba643945a7a1a46d62e6a498b3c43a66ce5c3cd9f6b`)
+and the 59.94-minute combined log (`bridge-master.csv`, SHA-256
+`53aa85d81f25b6efb907daa1a577e8c7f57dab92f09091d629ea88bd5526cec1`)
+showed no release-blocking warning against the established failure, ordering,
+timing, reset, queue, hash, ACK-debt, or replay baselines. Gameplay/output feel
+was accepted by the user. This evidence does not extend to later
+behavior-bearing commits or a different physical topology.
+
+Both maintained public sketches are included in the same exact-tuple gate. The
+general example passes GIGA/mbed (`118968` flash, `51728` RAM) and Nano/AVR
+(`15352` flash, `3781` RAM); the interactive Probe passes Nano/AVR (`18282`
+flash, `3735` RAM). The AVR example results have the same compile-only SRAM
+qualification. The pinned Comm candidate independently passes its 39-scenario
+native trace, trace-off/C++11 matrices, drain-failure and separate-production-TU
+tests, plus GIGA include-shadow and AVR compiles.
 
 ## Remote layout
 
@@ -73,6 +150,9 @@ line.
    consumers.
 4. Pin releases by an immutable tag or commit. Do not consume `main` or
    `ogm/compat` by a moving branch name.
+   `library.properties` intentionally omits named Arduino dependencies because
+   that format cannot express immutable Git SHAs; use the exact tuple in
+   `library.json`/`ogm-fork-lock.json`.
 5. Reconcile newer CMB27 changes only in a separate, explicitly test-gated
    change after the compatibility package is proven.
 
@@ -100,8 +180,7 @@ not alter on-wire behavior; it does not replace item 6. Conversely, hardware
 that merely appears playable does not replace the trace, ordering or
 performance gates.
 
-The seed package pins ModbusADU to
-`7cb0e24f0abe86bc83e114325d75fe7a7d878562` and the provenance-only
-ModbusRTUComm seed to `d6eca90923aea0a8c0d10716e190f462886205b2`.
-The Comm pin must be advanced in a reviewed commit when its functional OGM
-transport replay is ready.
+The candidate package pins ModbusADU to
+`7cb0e24f0abe86bc83e114325d75fe7a7d878562` and the functional ModbusRTUComm
+candidate to `10477dd4af395331c86692f03f9d0c5c709fa684`. Neither dependency may be
+advanced independently without rerunning the complete tuple gates.

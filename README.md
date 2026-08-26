@@ -1,11 +1,11 @@
 # ModbusRTUMaster
 
 > [!IMPORTANT]
-> This branch is the OpenGameMaster compatibility seed, not the current CMB27
-> development line. It is rooted at the exact CMB27 revision originally
-> imported by OGM and intentionally contains no replayed OGM master changes
-> yet. Do not use it as an OGM replacement until a validated compatibility
-> release is tagged.
+> This branch is the OpenGameMaster compatibility line, not the current CMB27
+> development line. The exact Master replay at `2.0.0-ogm.1`, with its pinned
+> Comm and ADU tuple, completed the OGM consumer and physical GIGA/RS485 gates
+> with unchanged deployed slave firmware on 2026-08-26. Consume that immutable
+> tag or its full commit, not a moving branch.
 
 This repository preserves two intentionally different histories:
 
@@ -21,15 +21,26 @@ The exact anchors, matching source hashes and replay rules are recorded in
 
 ## Compatibility-line status
 
-The seed keeps `src/ModbusRTUMaster.h` and `src/ModbusRTUMaster.cpp` unchanged
-from the historical branch point. Package/provenance files have been added, but
-the functional OGM replay has not begun. In particular, this branch does not
-yet include OGM's platform seam, diagnostics, synchronization, FC 0x45
-no-response path or other later transport behavior.
+The Master protocol replay now includes OGM's FC `0x45` targeted-broadcast
+helpers, transmit-admission errors, caller-buffer synchronization, error names
+and neutral Comm capability forwarding. It deliberately does not own UART
+timing, drain/DE/RE, receive recovery, tasks or diagnostics policy; those live
+in the separately reviewed ModbusRTUComm fork.
+
+Both package manifests identify this candidate as `2.0.0-ogm.1`. The OGM
+prerelease suffix is intentional: upstream already owns the distinct `2.0.0`
+identity, and compatibility-fork artifacts must not be mistaken for that tag.
 
 Check `ogm_functional_replay` in `ogm-fork-lock.json` before treating a commit
 as a migration candidate. A tag is not considered a compatibility release
 until the validation gates in the provenance document are satisfied.
+
+The native gate compares 45 deterministic scenarios against the exact
+`OGM_Portable` `2055adb` source oracle. Request bytes and CRCs, parsed values,
+all error paths and lock/Comm ordering match. Normalized optimized disassembly,
+per-function stack usage, symbol sizes and object footprint are also exact. See
+[test/README.md](test/README.md) for the commands and the boundary between
+deterministic evidence and the completed, tuple-specific hardware acceptance.
 
 ## Installing a validated compatibility release
 
@@ -38,7 +49,7 @@ never a moving branch:
 
 ```ini
 lib_deps =
-  https://github.com/Cybergrany/ModbusRTUMaster.git#<validated-tag-or-40-char-commit>
+  https://github.com/Cybergrany/ModbusRTUMaster.git#2.0.0-ogm.1
 ```
 
 The `library.json` at that pinned revision also pins the corresponding
@@ -46,6 +57,12 @@ The `library.json` at that pinned revision also pins the corresponding
 Do not override those dependencies independently unless the complete tuple has
 been revalidated. The seed commit is suitable for provenance inspection and
 compile experiments only; it is not the eventual OGM dependency pin.
+
+Arduino Library Manager metadata cannot pin dependencies to Git commits, so
+`library.properties` intentionally declares no mutable named dependencies.
+Arduino IDE/CLI users must install the exact ModbusADU and ModbusRTUComm
+revisions from `ogm-fork-lock.json` themselves. A mismatched Comm then fails at
+compile time unless it advertises the required no-response/next-TX gate.
 
 For local extraction work, use a path dependency so the consumer and library
 changes are tested together:
@@ -59,7 +76,7 @@ Before publishing a release, replace the local path with the immutable remote
 revision and rebuild the exact OGM dependency tree from a clean dependency
 cache.
 
-## Compatibility-seed usage example
+## Compatibility usage example
 
 The historical compatibility API returns `ModbusRTUMasterError`, rather than a
 `bool`. It also expects the application to configure the serial port; the
@@ -94,9 +111,29 @@ void loop() {
 }
 ```
 
-This example documents the seed API only. The functional replay may add
-neutral extension points while preserving existing OGM call sites; consult the
-header at the pinned release for its exact API.
+Targeted broadcast is exposed as explicit FC `0x45` helpers. It is
+fire-and-forget: success means Comm transmitted/admitted the frame, not that a
+slave acknowledged it.
+
+```cpp
+const uint16_t page[] = {0x1122, 0x3344};
+const ModbusRTUMasterError sent =
+    modbus.fc69WriteMultipleHoldingRegisters(7, 0x1234, page, 2);
+```
+
+Applications that pass a caller-buffer lock select a platform type at compile
+time. This keeps platform and RTOS headers out of the library while retaining
+direct, allocation-free `lock()`/`unlock()` calls:
+
+```ini
+build_flags =
+  -DMBUS_RTU_MASTER_LOCK_HEADER=\"platform/PlatformMutex.h\"
+  -DMBUS_RTU_MASTER_LOCK_TYPE=PlatformMutex
+```
+
+The lock covers only the caller-buffer copy. It is released before serial I/O;
+it does not serialize complete Modbus transactions. See [src/README.md](src/README.md)
+for the complete public contract and usage examples.
 
 ## OGM compatibility contract
 
@@ -111,8 +148,10 @@ Moving source ownership into this repository must not change:
 
 Native fixtures and byte comparisons can strongly constrain those properties,
 but they cannot prove UART interrupt latency, RS485 electrical timing, scheduler
-behavior or bus contention. No Stage C bridge or hardware-validation claim is
-made by this seed documentation.
+behavior or bus contention. Those limits still apply generally; the immutable
+`2.0.0-ogm.1` tuple itself subsequently passed the scoped master-only and
+combined master/bridge physical checkpoints recorded in
+[`OGM_FORK_PROVENANCE.md`](OGM_FORK_PROVENANCE.md).
 
 ## Historical upstream documentation
 
@@ -134,8 +173,12 @@ This is an Arduino library that implements the master/client logic of the Modbus
 This library will work with HardwareSerial, SoftwareSerial, or Serial_ (USB Serial on ATmega32u4 based boards). A driver enable pin can be set up, enabling an RS-485 transceiver to be used. Only `SERIAL_8N1`, `SERIAL_8E1`, `SERIAL_8O1`, `SERIAL_8N2`, `SERIAL_8E2`, and `SERIAL_8O2` are supported when using HardwareSerial; attempting to use any other configuration will cause the library to default to `SERIAL_8N1`.  
 
 ## Examples
-- [ModbusRTUMasterExample](https://github.com/CMB27/ModbusRTUMaster/blob/main/examples/ModbusRTUMasterExample/ModbusRTUMasterExample.ino)
-- [ModbusRTUMasterProbe](https://github.com/CMB27/ModbusRTUMaster/blob/main/examples/ModbusRTUMasterProbe/ModbusRTUMasterProbe.ino)
+- [ModbusRTUMasterExample](examples/ModbusRTUMasterExample/ModbusRTUMasterExample.ino)
+- [ModbusRTUMasterProbe](examples/ModbusRTUMasterProbe/ModbusRTUMasterProbe.ino)
+
+These local sketches are maintained against the compatibility API and are part
+of the embedded compile gate. Do not substitute examples from a moving upstream
+branch: its API contract differs from this line.
 
 ## Methods
 
@@ -170,7 +213,7 @@ ModbusRTUMaster modbus(Serial, dePin);
 ### setTimeout()
 
 #### Description
-Sets the maximum timeout in milliseconds to wait for a response after sending a request. The default is 100 milliseconds.
+Sets the maximum timeout in milliseconds to wait for the start of a response after sending a request. The compatibility constructor sets this to 500 milliseconds by default.
 
 #### Syntax
 ``` C++
