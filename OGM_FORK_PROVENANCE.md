@@ -1,22 +1,21 @@
 # OpenGameMaster fork provenance
 
-This repository retains the complete CMB27 Git history. Its two long-lived
-lines have deliberately different purposes:
+This repository retains the complete CMB27 Git history. Its maintained `main`
+starts at the historical source revision imported by OGM and records reviewed
+OGM improvements as ordinary descendant commits. Current CMB27 development is
+tracked through the `upstream` remote, not by publishing a competing API on
+this fork's default branch.
 
-- `main` tracks `upstream/main` without OGM changes.
-- `ogm/compat` starts at the historical source revision imported by OGM and is
-  the only line on which reviewed OGM compatibility changes may be replayed.
-
-Do not recreate `ogm/compat` from the latest upstream API. Doing so would mix
-the later upstream redesign with the repository move and invalidate the
-no-behaviour-change migration gate.
+Do not recreate the maintained line from the latest upstream API. Doing so
+would mix a later redesign with the ownership move and invalidate the
+no-behaviour-change evidence.
 
 ## Immutable anchors
 
 | Purpose | Commit |
 | --- | --- |
 | CMB27 revision reviewed before fork seeding | `78ed238428411c9fb781a2a7e04ec97a0c80371b` |
-| `ogm/compat` branch point | `59fe589d2cf389b17b7eeb127254a28de144d6e3` |
+| Maintained OGM line branch point | `59fe589d2cf389b17b7eeb127254a28de144d6e3` |
 | First OGM import in `OpenGameMaster_pio` | `ef4d0ccb1cccd60781f3605d444a16dc7900661c` |
 | Later transfer into `OGM_Portable` | `a3551eab76877052df39a5e3ac875f71ce4e1109` |
 | Validated functional replay source | `2055adb449c1e767217f09f99efda32e52a0306d` |
@@ -32,7 +31,7 @@ point. Their SHA-256 values match exactly:
 The machine-readable form of these anchors and exact package dependency pins
 is [`ogm-fork-lock.json`](ogm-fork-lock.json).
 
-## Current compatibility status
+## Current release status
 
 The master-layer replay is implemented, natively differential-tested, and
 released at immutable tag `2.0.0-ogm.1`. That tag points to exact
@@ -80,12 +79,12 @@ release tuple.
 The pinned Master/Comm tuple also links as strict native C++11 and passes the
 standalone Arduino compile gate on GIGA/mbed (`102672` flash, `51216` RAM) and
 Nano/AVR (`12360` flash, `3205` RAM). The Nano result is compile-only because
-the complete compatibility transport intentionally exceeds its 2 KiB SRAM.
+the complete transport intentionally exceeds its 2 KiB SRAM.
 Whole-firmware resource comparison remains a consumer gate; standalone numbers
 must not be compared with an OGM application image as if their link surfaces
 were equal.
 
-## Compatibility release evidence
+## Hardware-accepted release evidence
 
 The immutable release tuple is:
 
@@ -124,19 +123,18 @@ origin    git@github.com:Cybergrany/ModbusRTUMaster.git
 upstream  https://github.com/CMB27/ModbusRTUMaster.git
 ```
 
-The Cybergrany repository is maintained as a GitHub fork of CMB27. Refresh the
-upstream tracking line and publish compatibility work without rewriting either
-history:
+The Cybergrany repository is maintained as a GitHub fork of CMB27. Fetch
+upstream for comparison or an explicitly test-gated reconciliation; publish
+OGM work on this fork's maintained line:
 
 ```bash
 git fetch upstream --prune --tags
-git push origin upstream/main:main
-git push -u origin ogm/compat
+git log --left-right --cherry-pick main...upstream/main
+git push origin main
 ```
 
-The `upstream/main:main` push must be fast-forward-only in practice. If Git
-rejects it, inspect the fork divergence; do not force-push either long-lived
-line.
+Do not overwrite `main` with `upstream/main`. Reconciliation is a source and
+behavior migration, not branch housekeeping.
 
 ## Replay and release policy
 
@@ -148,18 +146,18 @@ line.
 3. Preserve request bytes, response validation, FC 0x45 no-response ordering,
    timing, error values, lock spans, footprint, and performance before changing
    consumers.
-4. Pin releases by an immutable tag or commit. Do not consume `main` or
-   `ogm/compat` by a moving branch name.
+4. Pin releases by an immutable tag or commit. Do not consume `main` by a
+   moving branch name.
    `library.properties` intentionally omits named Arduino dependencies because
    that format cannot express immutable Git SHAs; use the exact tuple in
    `library.json`/`ogm-fork-lock.json`.
 5. Reconcile newer CMB27 changes only in a separate, explicitly test-gated
-   change after the compatibility package is proven.
+   change after the maintained package is proven.
 
-## Compatibility release gates
+## Release gates
 
-A commit or tag on `ogm/compat` is suitable for an OGM consumer only after all
-of the following evidence is recorded against the exact dependency tuple:
+A commit or tag is suitable for an OGM consumer only after all of the following
+evidence is recorded against the exact dependency tuple:
 
 1. Source provenance: each replay commit names its source OGM commit(s), and
    generated/package locks resolve to immutable dependency commits.

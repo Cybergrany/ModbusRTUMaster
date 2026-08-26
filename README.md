@@ -1,25 +1,37 @@
 # ModbusRTUMaster
 
+This is the OpenGameMaster-maintained, provenance-preserving fork of
+[`CMB27/ModbusRTUMaster`](https://github.com/CMB27/ModbusRTUMaster). It keeps
+the familiar allocation-free Arduino API while adding the behavior and
+contracts needed for deterministic, observable multidrop game-control
+networks.
+
 > [!IMPORTANT]
-> This branch is the OpenGameMaster compatibility line, not the current CMB27
-> development line. The exact Master replay at `2.0.0-ogm.1`, with its pinned
-> Comm and ADU tuple, completed the OGM consumer and physical GIGA/RS485 gates
-> with unchanged deployed slave firmware on 2026-08-26. Consume that immutable
-> tag or its full commit, not a moving branch.
+> The exact Master release at `2.0.0-ogm.1`, with its pinned Comm and ADU
+> tuple, completed OGM consumer and physical GIGA/RS485 gates with unchanged
+> deployed slave firmware on 2026-08-26. Consume that immutable tag or its full
+> commit, not a moving branch.
 
-This repository preserves two intentionally different histories:
+## What this fork adds
 
-| Ref | Purpose | Consumer guidance |
-| --- | --- | --- |
-| `main` | Mirrors the current `CMB27/ModbusRTUMaster` line without OGM changes. | Use to review or incorporate upstream work, not as an automatic OGM upgrade. |
-| `ogm/compat` | Starts at CMB27 `59fe589d2cf389b17b7eeb127254a28de144d6e3`, the source imported by OGM. | OGM changes are replayed here in small, test-gated commits. Consume only an immutable validated tag or commit. |
+- FC `0x45` targeted broadcast with explicit fire-and-forget ordering;
+- reliable failed-transmit and stable caller-visible error propagation;
+- optional caller-buffer locking that never spans serial I/O;
+- one-shot pre/post transaction scheduling gaps;
+- neutral forwarding of detailed transport metrics and stack diagnostics; and
+- immutable Master -> Comm -> ADU dependency and capability contracts.
 
-The exact anchors, matching source hashes and replay rules are recorded in
+The maintained `main` descends from CMB27
+`59fe589d2cf389b17b7eeb127254a28de144d6e3`, the source imported by OGM,
+so Git history shows each improvement on top of the original implementation.
+Current CMB27 development remains available through the `upstream` remote.
+Reconciling it is a separate behavior migration, not branch housekeeping.
+
+Exact anchors, matching source hashes and replay rules are recorded in
 [OGM_FORK_PROVENANCE.md](OGM_FORK_PROVENANCE.md) and
-[`ogm-fork-lock.json`](ogm-fork-lock.json). Do not merge or rebase `main` into
-`ogm/compat`: a newer-upstream reconciliation is a separate behavior change.
+[`ogm-fork-lock.json`](ogm-fork-lock.json).
 
-## Compatibility-line status
+## Release status
 
 The Master protocol replay now includes OGM's FC `0x45` targeted-broadcast
 helpers, transmit-admission errors, caller-buffer synchronization, error names
@@ -29,10 +41,10 @@ in the separately reviewed ModbusRTUComm fork.
 
 Both package manifests identify this candidate as `2.0.0-ogm.1`. The OGM
 prerelease suffix is intentional: upstream already owns the distinct `2.0.0`
-identity, and compatibility-fork artifacts must not be mistaken for that tag.
+identity, and OGM-maintained artifacts must not be mistaken for that tag.
 
 Check `ogm_functional_replay` in `ogm-fork-lock.json` before treating a commit
-as a migration candidate. A tag is not considered a compatibility release
+as a migration candidate. A tag is not considered a validated release
 until the validation gates in the provenance document are satisfied.
 
 The native gate compares 45 deterministic scenarios against the exact
@@ -42,9 +54,9 @@ per-function stack usage, symbol sizes and object footprint are also exact. See
 [test/README.md](test/README.md) for the commands and the boundary between
 deterministic evidence and the completed, tuple-specific hardware acceptance.
 
-## Installing a validated compatibility release
+## Installing a validated release
 
-PlatformIO consumers should pin an immutable compatibility tag or full commit,
+PlatformIO consumers should pin an immutable OGM tag or full commit,
 never a moving branch:
 
 ```ini
@@ -76,9 +88,9 @@ Before publishing a release, replace the local path with the immutable remote
 revision and rebuild the exact OGM dependency tree from a clean dependency
 cache.
 
-## Compatibility usage example
+## Usage example
 
-The historical compatibility API returns `ModbusRTUMasterError`, rather than a
+This maintained API returns `ModbusRTUMasterError`, rather than a
 `bool`. It also expects the application to configure the serial port; the
 library's `begin()` computes RTU timing and initializes direction pins but does
 not call `HardwareSerial::begin()` on this seed.
@@ -135,7 +147,7 @@ The lock covers only the caller-buffer copy. It is released before serial I/O;
 it does not serialize complete Modbus transactions. See [src/README.md](src/README.md)
 for the complete public contract and usage examples.
 
-## OGM compatibility contract
+## Behavior contract
 
 Moving source ownership into this repository must not change:
 
@@ -156,7 +168,7 @@ combined master/bridge physical checkpoints recorded in
 ## Historical upstream documentation
 
 The reference below is retained from the CMB27 branch point. Return-value
-descriptions have been corrected for the compatibility API, but the pinned
+descriptions have been corrected for the maintained API, but the pinned
 source and the example above remain authoritative if historical prose and code
 ever disagree.
 
@@ -175,7 +187,7 @@ This library will work with HardwareSerial, SoftwareSerial, or Serial_ (USB Seri
 - [ModbusRTUMasterExample](examples/ModbusRTUMasterExample/ModbusRTUMasterExample.ino)
 - [ModbusRTUMasterProbe](examples/ModbusRTUMasterProbe/ModbusRTUMasterProbe.ino)
 
-These local sketches are maintained against the compatibility API and are part
+These local sketches are maintained against the public API and are part
 of the embedded compile gate. Do not substitute examples from a moving upstream
 branch: its API contract differs from this line.
 
@@ -212,7 +224,7 @@ ModbusRTUMaster modbus(Serial, dePin);
 ### setTimeout()
 
 #### Description
-Sets the maximum timeout in milliseconds to wait for the start of a response after sending a request. The compatibility constructor sets this to 500 milliseconds by default.
+Sets the maximum timeout in milliseconds to wait for the start of a response after sending a request. The maintained constructor sets this to 500 milliseconds by default.
 
 #### Syntax
 ``` C++

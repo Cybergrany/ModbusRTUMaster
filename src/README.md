@@ -118,7 +118,7 @@ therefore requires a clean rebuild of the consumer and library.
 
 ## Required and optional Comm capabilities
 
-The no-response gate above is mandatory for this compatibility line. Other
+The no-response gate above is mandatory for this maintained line. Other
 forwarding methods are enabled only when the selected Comm header advertises
 the matching neutral capability macro:
 
@@ -129,7 +129,7 @@ the matching neutral capability macro:
 | `MBUS_RTU_COMM_HAS_RX_STACK_SNAPSHOT` | `rxThreadStackSnapshot()` |
 
 These guards are compile-time contracts, not runtime feature detection. The OGM
-compatibility release pins one immutable Comm revision that exposes the same
+validated release pins one immutable Comm revision that exposes the same
 capabilities as the validated OGM source anchor.
 
 ## What tests establish
