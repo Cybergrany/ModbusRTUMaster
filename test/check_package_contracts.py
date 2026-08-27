@@ -16,7 +16,7 @@ EXPECTED_DEPENDENCIES = {
     ),
     "ModbusRTUComm": (
         "https://github.com/Cybergrany/ModbusRTUComm.git"
-        "#b7d9d6443e5f9519d6573e9bc3cd9c5f6f2a56e5"
+        "#3396469a504bb5690331beec6c4992dbd6b58a14"
     ),
 }
 
