@@ -31,7 +31,7 @@
   ],
   "dependencies": {
     "ModbusADU": "https://github.com/CMB27/ModbusADU.git#7cb0e24f0abe86bc83e114325d75fe7a7d878562",
-    "ModbusRTUComm": "https://github.com/Cybergrany/ModbusRTUComm.git#e5997f8a6f825976c8f0c9212cec09f653743cf2"
+    "ModbusRTUComm": "https://github.com/Cybergrany/ModbusRTUComm.git#523f9807f629bfdb8d8b3c06337a198c5e148c79"
   },
   "export": {
     "exclude": [
